@@ -1,0 +1,5 @@
+fastapi
+uvicorn
+requests
+PySide6
+openpyxl
