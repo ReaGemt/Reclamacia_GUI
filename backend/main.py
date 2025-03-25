@@ -4,7 +4,9 @@ from backend.models import Record, LoginRequest, CreateUserRequest
 from backend import crud
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import BackgroundTasks
-from selenium_worker import update_status
+from pydantic import BaseModel
+from backend.selenium_worker import update_status
+
 app = FastAPI()
 init_db()
 
@@ -48,9 +50,14 @@ def delete_record(record_id: int):
     crud.delete_record(record_id)
     return {"success": True}
 
+class SeleniumRequest(BaseModel):
+    card_number: str
+    new_status: str
+
 @app.post("/selenium")
-def run_selenium_task(data: dict, background_tasks: BackgroundTasks):
-    card_number = data.get("card_number")
-    new_status = data.get("new_status")
-    background_tasks.add_task(update_status, card_number, new_status)
-    return {"message": "Selenium task started"}
+def run_selenium(req: SeleniumRequest):
+    try:
+        update_status(req.card_number, req.new_status)
+        return {"success": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
