@@ -1,0 +1,396 @@
+import sys
+import requests
+from PySide6.QtWidgets import (
+    QApplication, QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem,
+    QPushButton, QHBoxLayout, QMessageBox, QDialog, QLabel, QLineEdit, QFormLayout,
+    QDateEdit, QFileDialog, QComboBox
+)
+from PySide6.QtCore import QDate
+from openpyxl import Workbook, load_workbook
+
+API_URL = "http://127.0.0.1:8000"
+current_user = None
+
+class LoginDialog(QDialog):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Вход")
+        layout = QFormLayout()
+
+        self.login_input = QLineEdit()
+        self.password_input = QLineEdit()
+        self.password_input.setEchoMode(QLineEdit.Password)
+
+        layout.addRow("Логин:", self.login_input)
+        layout.addRow("Пароль:", self.password_input)
+
+        self.login_btn = QPushButton("Войти")
+        self.login_btn.clicked.connect(self.try_login)
+        layout.addWidget(self.login_btn)
+
+        self.setLayout(layout)
+        self.success = False
+
+    def try_login(self):
+        global current_user
+        login = self.login_input.text().strip()
+        password = self.password_input.text().strip()
+        if not login or not password:
+            QMessageBox.warning(self, "Ошибка", "Введите логин и пароль")
+            return
+
+        try:
+            resp = requests.post(f"{API_URL}/auth", json={"login": login, "password": password})
+            if resp.status_code == 200:
+                current_user = login
+                self.success = True
+                self.accept()
+            else:
+                QMessageBox.critical(self, "Ошибка", "Неверный логин или пароль")
+        except Exception as e:
+            QMessageBox.critical(self, "Ошибка", str(e))
+
+class RecordDialog(QDialog):
+    def __init__(self, parent=None, record=None):
+        super().__init__(parent)
+        self.setWindowTitle("Редактировать запись" if record else "Добавить запись")
+        self.record_id = record.get("id") if record else None
+
+        layout = QFormLayout()
+        self.inputs = {}
+
+        self.fields = [
+            "record_date", "last_name", "first_name", "patronymic", "status",
+            "comment", "card_number", "organization", "manufacturer", "work_status"
+        ]
+
+        labels = {
+            "record_date": "Дата",
+            "last_name": "Фамилия",
+            "first_name": "Имя",
+            "patronymic": "Отчество",
+            "status": "Статус",
+            "comment": "Комментарий",
+            "card_number": "№ карты",
+            "organization": "Организация",
+            "manufacturer": "Производитель",
+            "work_status": "Статус работы"
+        }
+
+        for field in self.fields:
+            if field == "record_date":
+                date_edit = QDateEdit()
+                date_edit.setCalendarPopup(True)
+                if record:
+                    date = QDate.fromString(record.get(field, ""), "yyyy-MM-dd")
+                    date_edit.setDate(date if date.isValid() else QDate.currentDate())
+                else:
+                    date_edit.setDate(QDate.currentDate())
+                layout.addRow(QLabel(labels.get(field, field)), date_edit)
+                self.inputs[field] = date_edit
+
+            elif field == "manufacturer":
+                combo = QComboBox()
+                combo.addItem("")  # Пустой вариант по умолчанию
+                combo.addItems([
+                    "ООО \"ИКЦ Транспортные Технологии\"",
+                    "АО НТЦ \"Спецпроект\""
+                ])
+                if record:
+                    idx = combo.findText(record.get(field, ""))
+                    if idx >= 0:
+                        combo.setCurrentIndex(idx)
+                layout.addRow(QLabel(labels.get(field, field)), combo)
+                self.inputs[field] = combo
+
+            else:
+                line = QLineEdit()
+                if record:
+                    line.setText(str(record.get(field, "")))
+                layout.addRow(QLabel(labels.get(field, field)), line)
+                self.inputs[field] = line
+
+        self.submit_btn = QPushButton("Сохранить")
+        self.submit_btn.clicked.connect(self.submit)
+        layout.addWidget(self.submit_btn)
+
+        self.setLayout(layout)
+
+    def submit(self):
+        data = {}
+        for k, widget in self.inputs.items():
+            if isinstance(widget, QDateEdit):
+                data[k] = widget.date().toString("yyyy-MM-dd")
+            elif isinstance(widget, QComboBox):
+                data[k] = widget.currentText().strip()
+            else:
+                data[k] = widget.text().strip()
+
+        if len(data.get("card_number", "")) != 16:
+            QMessageBox.critical(self, "Ошибка", "Номер карты должен содержать ровно 16 символов.")
+            return
+
+        # Проверка обязательных полей (все кроме comment)
+        required_fields = [
+            "record_date", "last_name", "first_name", "patronymic", "status",
+            "card_number", "organization", "manufacturer", "work_status"
+        ]
+        for field in required_fields:
+            if not data.get(field):
+                QMessageBox.critical(self, "Ошибка", f"Поле '{field}' обязательно для заполнения.")
+                return
+
+        if not self.record_id:
+            if not current_user:
+                QMessageBox.critical(self, "Ошибка", "Пользователь не авторизован.")
+                return
+            data["created_by"] = current_user
+
+        try:
+            if self.record_id:
+                response = requests.put(f"{API_URL}/records/{self.record_id}", json=data)
+            else:
+                response = requests.post(f"{API_URL}/records", json=data)
+            if response.status_code in (200, 201):
+                self.accept()
+            else:
+                QMessageBox.critical(self, "Ошибка", f"Ошибка при сохранении:\n{response.text}")
+        except Exception as e:
+            QMessageBox.critical(self, "Ошибка", str(e))
+
+
+
+
+class MainWindow(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Reclamacia GUI")
+        self.setMinimumSize(1000, 600)
+
+        layout = QVBoxLayout()
+        self.setLayout(layout)
+
+        # --- Панель фильтрации ---
+        filter_layout = QHBoxLayout()
+        self.search_input = QLineEdit()
+        filter_layout.addWidget(QLabel("Поиск:"))
+        filter_layout.addWidget(self.search_input)
+
+        self.date_from = QDateEdit()
+        self.date_from.setCalendarPopup(True)
+        self.date_from.setDate(QDate(2000, 1, 1))
+        filter_layout.addWidget(QLabel("с"))
+        filter_layout.addWidget(self.date_from)
+
+        self.date_to = QDateEdit()
+        self.date_to.setCalendarPopup(True)
+        self.date_to.setDate(QDate.currentDate())
+        filter_layout.addWidget(QLabel("по"))
+        filter_layout.addWidget(self.date_to)
+
+        self.status_filter = QComboBox()
+        self.status_filter.addItem("[Все]")
+        self.status_filter.setMinimumWidth(120)
+        filter_layout.addWidget(QLabel("Статус:"))
+        filter_layout.addWidget(self.status_filter)
+
+        self.search_btn = QPushButton("Фильтровать")
+        self.search_btn.clicked.connect(self.search_records)
+        filter_layout.addWidget(self.search_btn)
+
+        self.reset_btn = QPushButton("Сброс")
+        self.reset_btn.clicked.connect(self.load_data)
+        filter_layout.addWidget(self.reset_btn)
+
+        layout.addLayout(filter_layout)
+
+        # --- Таблица ---
+        self.table = QTableWidget()
+        self.table.setColumnCount(12)
+        self.table.setHorizontalHeaderLabels([
+            "ID", "Дата", "Фамилия", "Имя", "Отчество", "Статус","№ Карты", "Организация",
+            "Производитель", "Статус работы", "Комментарий", "Кем создано"
+        ])
+        layout.addWidget(self.table)
+
+        # --- Кнопки ---
+        btn_layout = QHBoxLayout()
+
+        self.refresh_btn = QPushButton("Обновить")
+        self.refresh_btn.clicked.connect(self.load_data)
+        btn_layout.addWidget(self.refresh_btn)
+
+        self.add_btn = QPushButton("Добавить")
+        self.add_btn.clicked.connect(self.open_add_dialog)
+        btn_layout.addWidget(self.add_btn)
+
+        self.edit_btn = QPushButton("Редактировать")
+        self.edit_btn.clicked.connect(self.open_edit_dialog)
+        btn_layout.addWidget(self.edit_btn)
+
+        self.delete_btn = QPushButton("Удалить")
+        self.delete_btn.clicked.connect(self.delete_selected)
+        btn_layout.addWidget(self.delete_btn)
+
+        self.export_btn = QPushButton("Экспорт в Excel")
+        self.export_btn.clicked.connect(self.export_to_excel)
+        btn_layout.addWidget(self.export_btn)
+
+        self.import_btn = QPushButton("Импорт из Excel")
+        self.import_btn.clicked.connect(self.import_from_excel)
+        btn_layout.addWidget(self.import_btn)
+
+        layout.addLayout(btn_layout)
+        self.load_data()
+
+    def load_data(self):
+        try:
+            response = requests.get(f"{API_URL}/records")
+            self.all_records = response.json()
+            statuses = sorted(set(r["status"] for r in self.all_records if r.get("status")))
+            self.status_filter.blockSignals(True)
+            self.status_filter.clear()
+            self.status_filter.addItem("[Все]")
+            self.status_filter.addItems(statuses)
+            self.status_filter.blockSignals(False)
+            self.apply_filters(self.all_records)
+        except Exception as e:
+            QMessageBox.critical(self, "Ошибка", str(e))
+
+    def search_records(self):
+        self.apply_filters(self.all_records)
+
+    def apply_filters(self, records):
+        query = self.search_input.text().strip().lower()
+        date_from = self.date_from.date().toPython()
+        date_to = self.date_to.date().toPython()
+        status_selected = self.status_filter.currentText()
+
+        filtered = []
+        for record in records:
+            try:
+                rec_date = QDate.fromString(record["record_date"], "yyyy-MM-dd").toPython()
+            except:
+                rec_date = None
+            if rec_date and not (date_from <= rec_date <= date_to):
+                continue
+            if status_selected != "[Все]" and record.get("status") != status_selected:
+                continue
+            if query and not any(query in str(v).lower() for v in record.values()):
+                continue
+            filtered.append(record)
+
+        self.table.setRowCount(len(filtered))
+        for row_idx, record in enumerate(filtered):
+            for col_idx, value in enumerate(record.values()):
+                item = QTableWidgetItem(str(value))
+
+                # Подсветка по статусу
+                if col_idx == 5:  # индекс колонки 'Статус'
+                    status = value.lower()
+                    if "готово" in status:
+                        item.setBackground(QColor("lightgreen"))
+                    elif "в работе" in status:
+                        item.setBackground(QColor("khaki"))
+                    elif "отказ" in status:
+                        item.setBackground(QColor("lightcoral"))
+                    elif "ожидает" in status:
+                        item.setBackground(QColor("lightblue"))
+                    elif "закрыт" in status:
+                        item.setBackground(QColor("lightgray"))
+                    elif "открыт" in status:
+                        item.setBackground(QColor("lightyellow"))
+
+                self.table.setItem(row_idx, col_idx, item)
+
+    def open_add_dialog(self):
+        dialog = RecordDialog(self)
+        if dialog.exec():
+            self.load_data()
+
+    def open_edit_dialog(self):
+        selected = self.table.currentRow()
+        if selected == -1:
+            QMessageBox.warning(self, "Нет выбора", "Выберите строку.")
+            return
+
+        record = {"id": int(self.table.item(selected, 0).text())}
+        keys = [
+            "record_date", "last_name", "first_name", "patronymic", "status",
+            "comment", "card_number", "organization", "manufacturer", "work_status", "created_by"
+        ]
+        for i, field in enumerate(keys, start=1):
+            record[field] = self.table.item(selected, i).text()
+
+        dialog = RecordDialog(self, record=record)
+        if dialog.exec():
+            self.load_data()
+
+    def delete_selected(self):
+        selected = self.table.currentRow()
+        if selected == -1:
+            QMessageBox.warning(self, "Нет выбора", "Выберите строку для удаления.")
+            return
+        record_id = self.table.item(selected, 0).text()
+        confirm = QMessageBox.question(self, "Удаление", f"Удалить запись ID {record_id}?")
+        if confirm == QMessageBox.StandardButton.Yes:
+            try:
+                requests.delete(f"{API_URL}/records/{record_id}")
+                self.load_data()
+            except Exception as e:
+                QMessageBox.critical(self, "Ошибка", f"Не удалось удалить запись:\n{e}")
+
+    def export_to_excel(self):
+        try:
+            path, _ = QFileDialog.getSaveFileName(self, "Сохранить как", "export.xlsx", "Excel (*.xlsx)")
+            if not path:
+                return
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "Records"
+            headers = list(self.all_records[0].keys())
+            ws.append(headers)
+            for record in self.all_records:
+                ws.append([record.get(k, "") for k in headers])
+            wb.save(path)
+            QMessageBox.information(self, "Успех", f"Экспортировано: {path}")
+        except Exception as e:
+            QMessageBox.critical(self, "Ошибка", f"Не удалось экспортировать:\n{e}")
+
+    def import_from_excel(self):
+        path, _ = QFileDialog.getOpenFileName(self, "Выберите Excel файл", "", "Excel (*.xlsx *.xls)")
+        if not path:
+            return
+        try:
+            wb = load_workbook(path)
+            sheet = wb.active
+            headers = [cell.value for cell in sheet[1]]
+            expected = [
+                "record_date", "last_name", "first_name", "patronymic", "status",
+                "comment", "card_number", "organization", "manufacturer", "work_status"
+            ]
+            for field in expected:
+                if field not in headers:
+                    QMessageBox.warning(self, "Ошибка", f"Не хватает поля: {field}")
+                    return
+            col_idx = {name: idx for idx, name in enumerate(headers)}
+            count = 0
+            for row in sheet.iter_rows(min_row=2, values_only=True):
+                data = {field: row[col_idx[field]] for field in expected}
+                data["created_by"] = current_user
+                r = requests.post(f"{API_URL}/records", json=data)
+                if r.status_code == 200:
+                    count += 1
+            QMessageBox.information(self, "Импорт завершён", f"Добавлено записей: {count}")
+            self.load_data()
+        except Exception as e:
+            QMessageBox.critical(self, "Ошибка", f"Не удалось импортировать:\n{e}")
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    login_dialog = LoginDialog()
+    if login_dialog.exec() != QDialog.DialogCode.Accepted or not login_dialog.success:
+        sys.exit()
+    window = MainWindow()
+    window.show()
+    sys.exit(app.exec())
