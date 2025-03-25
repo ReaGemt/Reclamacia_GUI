@@ -26,7 +26,12 @@ status_icons = {
     "Закрыт": "✅"
 }
 
-# ... остальной код ...
+# === LoginDialog, RecordDialog и MainWindow ===
+# вставим твой полный рабочий код с добавлением цвета строки и иконок:
+
+# ... (оставляем код LoginDialog и RecordDialog без изменений)
+
+# внутри apply_filters() заменим блок setItem вот так:
 
     def apply_filters(self, records):
         query = self.search_input.text().strip().lower()
@@ -58,7 +63,6 @@ status_icons = {
             row_color = status_colors.get(record.get("work_status", ""))
             for col_idx, key in enumerate(display_keys):
                 value = record.get(key, "")
-                # Добавим иконку к статусу работы
                 if key == "work_status":
                     icon = status_icons.get(value, "")
                     value = f"{icon} {value}"
@@ -66,3 +70,14 @@ status_icons = {
                 if row_color:
                     item.setBackground(row_color)
                 self.table.setItem(row_idx, col_idx, item)
+
+# остальной код MainWindow оставить как есть
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    login_dialog = LoginDialog()
+    if login_dialog.exec() != QDialog.DialogCode.Accepted or not login_dialog.success:
+        sys.exit()
+    window = MainWindow()
+    window.show()
+    sys.exit(app.exec())
