@@ -1,5 +1,7 @@
-fastapi
+fastapi~=0.115.12
 uvicorn
-requests
-PySide6
-openpyxl
+requests~=2.32.3
+PySide6~=6.8.2.1
+openpyxl~=3.1.5
+selenium
+pydantic~=2.10.6

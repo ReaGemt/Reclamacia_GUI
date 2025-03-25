@@ -3,6 +3,8 @@ from backend.database import init_db
 from backend.models import Record, LoginRequest, CreateUserRequest
 from backend import crud
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI, BackgroundTasks
+from backend.selenium_worker import update_status
 
 app = FastAPI()
 init_db()
@@ -46,3 +48,10 @@ def edit_record(record_id: int, record: Record):
 def delete_record(record_id: int):
     crud.delete_record(record_id)
     return {"success": True}
+
+@app.post("/selenium")
+def run_selenium_task(data: dict, background_tasks: BackgroundTasks):
+    card_number = data.get("card_number")
+    new_status = data.get("new_status")
+    background_tasks.add_task(update_status, card_number, new_status)
+    return {"message": "Selenium task started"}
