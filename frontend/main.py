@@ -41,9 +41,15 @@ status_colors = {
                 continue
             filtered.append(record)
 
+        display_keys = [
+            "id", "record_date", "last_name", "first_name", "patronymic", "status",
+            "card_number", "organization", "manufacturer", "work_status", "comment", "created_by"
+        ]
+
         self.table.setRowCount(len(filtered))
         for row_idx, record in enumerate(filtered):
-            for col_idx, (key, value) in enumerate(record.items()):
+            for col_idx, key in enumerate(display_keys):
+                value = record.get(key, "")
                 item = QTableWidgetItem(str(value))
                 if key == "work_status":
                     color = status_colors.get(value)
