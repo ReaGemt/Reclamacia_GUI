@@ -1,9 +1,17 @@
-from PySide6.QtWidgets import QDialog, QFormLayout, QLabel, QLineEdit, QPushButton, QComboBox, QDateEdit, QMessageBox
+from PySide6.QtWidgets import QDialog, QFormLayout, QLabel, QLineEdit, QPushButton, QComboBox, QDateEdit, QMessageBox, QTableWidgetItem
 from PySide6.QtCore import QDate
+from PySide6.QtGui import QColor
 import requests
 
 API_URL = "http://127.0.0.1:8000"
 current_user = None
+
+status_colors = {
+    "Новый": QColor("lightgreen"),
+    "В работе": QColor("gold"),
+    "Ожидает": QColor("lightblue"),
+    "Закрыт": QColor("lightgray")
+}
 
 class RecordDialog(QDialog):
     def __init__(self, parent=None, record=None):
@@ -123,3 +131,6 @@ class RecordDialog(QDialog):
                 QMessageBox.critical(self, "Ошибка", f"Ошибка при сохранении:\n{response.text}")
         except Exception as e:
             QMessageBox.critical(self, "Ошибка", str(e))
+
+# ВНИМАНИЕ: ниже пример использования цветов можно встроить в таблицу (MainWindow), этот файл содержит только диалоговую часть.
+# Добавить в MainWindow.apply_filters() проверку цвета на колонке "Статус работы" (если интеграция потребуется)
