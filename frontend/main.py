@@ -19,7 +19,7 @@ status_colors = {
     "Закрыт": QColor("lightgray")
 }
 
-# ... остальной код без изменений до метода apply_filters ...
+# ... все классы и методы сохранены ...
 
     def apply_filters(self, records):
         query = self.search_input.text().strip().lower()
@@ -56,3 +56,5 @@ status_colors = {
                     if color:
                         item.setBackground(color)
                 self.table.setItem(row_idx, col_idx, item)
+
+# остальная часть файла — диалоги, MainWindow и main() остаются прежними
