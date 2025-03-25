@@ -6,6 +6,7 @@ from PySide6.QtWidgets import (
     QDateEdit, QFileDialog, QComboBox
 )
 from PySide6.QtCore import QDate
+from PySide6.QtGui import QColor
 from openpyxl import Workbook, load_workbook
 
 API_URL = "http://127.0.0.1:8000"
@@ -50,6 +51,21 @@ class LoginDialog(QDialog):
         except Exception as e:
             QMessageBox.critical(self, "Ошибка", str(e))
 
+
+status_colors = {
+    "Новый": QColor("lightgreen"),
+    "В работе": QColor("gold"),
+    "Ожидает": QColor("lightblue"),
+    "Закрыт": QColor("lightgray")
+}
+
+status_icons = {
+    "Новый": "🟢",
+    "В работе": "🛠",
+    "Ожидает": "⏳",
+    "Закрыт": "✅"
+}
+
 class RecordDialog(QDialog):
     def __init__(self, parent=None, record=None):
         super().__init__(parent)
@@ -60,21 +76,20 @@ class RecordDialog(QDialog):
         self.inputs = {}
 
         self.fields = [
-            "record_date", "last_name", "first_name", "patronymic", "status",
-            "comment", "card_number", "organization", "manufacturer", "work_status"
+            "record_date", "card_number", "last_name", "first_name", "patronymic",
+            "organization", "manufacturer", "work_status", "comment"
         ]
 
         labels = {
             "record_date": "Дата",
+            "card_number": "№ карты",
             "last_name": "Фамилия",
             "first_name": "Имя",
             "patronymic": "Отчество",
-            "status": "Статус",
-            "comment": "Комментарий",
-            "card_number": "№ карты",
             "organization": "Организация",
             "manufacturer": "Производитель",
-            "work_status": "Статус работы"
+            "work_status": "Статус работы",
+            "comment": "Комментарий"
         }
 
         for field in self.fields:
@@ -91,11 +106,21 @@ class RecordDialog(QDialog):
 
             elif field == "manufacturer":
                 combo = QComboBox()
-                combo.addItem("")  # Пустой вариант по умолчанию
+                combo.addItem("")
                 combo.addItems([
                     "ООО \"ИКЦ Транспортные Технологии\"",
                     "АО НТЦ \"Спецпроект\""
                 ])
+                if record:
+                    idx = combo.findText(record.get(field, ""))
+                    if idx >= 0:
+                        combo.setCurrentIndex(idx)
+                layout.addRow(QLabel(labels.get(field, field)), combo)
+                self.inputs[field] = combo
+
+            elif field == "work_status":
+                combo = QComboBox()
+                combo.addItems(["Новый", "В работе", "Ожидает", "Закрыт"])
                 if record:
                     idx = combo.findText(record.get(field, ""))
                     if idx >= 0:
@@ -130,10 +155,9 @@ class RecordDialog(QDialog):
             QMessageBox.critical(self, "Ошибка", "Номер карты должен содержать ровно 16 символов.")
             return
 
-        # Проверка обязательных полей (все кроме comment)
         required_fields = [
-            "record_date", "last_name", "first_name", "patronymic", "status",
-            "card_number", "organization", "manufacturer", "work_status"
+            "record_date", "card_number", "last_name", "first_name", "patronymic",
+            "organization", "manufacturer", "work_status"
         ]
         for field in required_fields:
             if not data.get(field):
@@ -145,6 +169,9 @@ class RecordDialog(QDialog):
                 QMessageBox.critical(self, "Ошибка", "Пользователь не авторизован.")
                 return
             data["created_by"] = current_user
+            data["status"] = "Создано"
+        else:
+            data["status"] = "Изменено"
 
         try:
             if self.record_id:
@@ -157,9 +184,6 @@ class RecordDialog(QDialog):
                 QMessageBox.critical(self, "Ошибка", f"Ошибка при сохранении:\n{response.text}")
         except Exception as e:
             QMessageBox.critical(self, "Ошибка", str(e))
-
-
-
 
 class MainWindow(QWidget):
     def __init__(self):
@@ -208,7 +232,7 @@ class MainWindow(QWidget):
         self.table = QTableWidget()
         self.table.setColumnCount(12)
         self.table.setHorizontalHeaderLabels([
-            "ID", "Дата", "Фамилия", "Имя", "Отчество", "Статус","№ Карты", "Организация",
+            "ID", "Дата", "Фамилия", "Имя", "Отчество", "Статус", "№ Карты", "Организация",
             "Производитель", "Статус работы", "Комментарий", "Кем создано"
         ])
         layout.addWidget(self.table)
@@ -242,6 +266,10 @@ class MainWindow(QWidget):
 
         layout.addLayout(btn_layout)
         self.load_data()
+
+        self.selenium_btn = QPushButton("Обновить статус в системе")
+        self.selenium_btn.clicked.connect(self.run_selenium)
+        btn_layout.addWidget(self.selenium_btn)
 
     def load_data(self):
         try:
@@ -280,10 +308,23 @@ class MainWindow(QWidget):
                 continue
             filtered.append(record)
 
+        display_keys = [
+            "id", "record_date", "last_name", "first_name", "patronymic", "status",
+            "card_number", "organization", "manufacturer", "work_status", "comment", "created_by"
+        ]
+
         self.table.setRowCount(len(filtered))
         for row_idx, record in enumerate(filtered):
-            for col_idx, value in enumerate(record.values()):
-                self.table.setItem(row_idx, col_idx, QTableWidgetItem(str(value)))
+            row_color = status_colors.get(record.get("work_status", ""))
+            for col_idx, key in enumerate(display_keys):
+                value = record.get(key, "")
+                if key == "work_status":
+                    icon = status_icons.get(value, "")
+                    value = f"{icon} {value}"
+                item = QTableWidgetItem(str(value))
+                if row_color:
+                    item.setBackground(row_color)
+                self.table.setItem(row_idx, col_idx, item)
 
     def open_add_dialog(self):
         dialog = RecordDialog(self)
@@ -367,6 +408,27 @@ class MainWindow(QWidget):
             self.load_data()
         except Exception as e:
             QMessageBox.critical(self, "Ошибка", f"Не удалось импортировать:\n{e}")
+
+    def run_selenium(self):
+        selected = self.table.currentRow()
+        if selected == -1:
+            QMessageBox.warning(self, "Нет выбора", "Выберите запись.")
+            return
+
+        card_number = self.table.item(selected, 6).text()
+        work_status = self.table.item(selected, 9).text()
+
+        try:
+            response = requests.post(f"{API_URL}/selenium", json={
+                "card_number": card_number,
+                "new_status": work_status
+            })
+            if response.status_code == 200:
+                QMessageBox.information(self, "Готово", "Статус обновлён в системе.")
+            else:
+                QMessageBox.warning(self, "Ошибка", response.text)
+        except Exception as e:
+            QMessageBox.critical(self, "Ошибка", str(e))
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
