@@ -1,3 +1,5 @@
+#backend/main.py
+
 from fastapi import FastAPI, HTTPException
 from backend.database import init_db
 from backend.models import Record, LoginRequest, CreateUserRequest
@@ -56,6 +58,7 @@ class SeleniumRequest(BaseModel):
 
 @app.post("/selenium")
 def run_selenium(req: SeleniumRequest):
+    print(">>> selenium endpoint РАБОТАЕТ")
     try:
         update_status(req.card_number, req.new_status)
         return {"success": True}

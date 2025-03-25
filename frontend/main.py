@@ -1,3 +1,5 @@
+#frontend/main.py
+
 import sys
 import requests
 from PySide6.QtWidgets import (
