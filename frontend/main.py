@@ -48,13 +48,10 @@ status_colors = {
 
         self.table.setRowCount(len(filtered))
         for row_idx, record in enumerate(filtered):
+            row_color = status_colors.get(record.get("work_status", ""))
             for col_idx, key in enumerate(display_keys):
                 value = record.get(key, "")
                 item = QTableWidgetItem(str(value))
-                if key == "work_status":
-                    color = status_colors.get(value)
-                    if color:
-                        item.setBackground(color)
+                if row_color:
+                    item.setBackground(row_color)
                 self.table.setItem(row_idx, col_idx, item)
-
-# остальная часть файла — диалоги, MainWindow и main() остаются прежними
