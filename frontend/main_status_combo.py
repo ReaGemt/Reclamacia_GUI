@@ -108,6 +108,9 @@ class RecordDialog(QDialog):
                 QMessageBox.critical(self, "Ошибка", "Пользователь не авторизован.")
                 return
             data["created_by"] = current_user
+            data["status"] = "Создано"
+        else:
+            data["status"] = "Изменено"
 
         try:
             if self.record_id:
