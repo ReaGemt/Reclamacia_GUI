@@ -64,12 +64,51 @@ class RecordDialog(QDialog):
             "comment", "card_number", "organization", "manufacturer", "work_status"
         ]
 
+        labels = {
+            "record_date": "Дата",
+            "last_name": "Фамилия",
+            "first_name": "Имя",
+            "patronymic": "Отчество",
+            "status": "Статус",
+            "comment": "Комментарий",
+            "card_number": "№ карты",
+            "organization": "Организация",
+            "manufacturer": "Производитель",
+            "work_status": "Статус работы"
+        }
+
         for field in self.fields:
-            line = QLineEdit()
-            if record:
-                line.setText(str(record.get(field, "")))
-            layout.addRow(QLabel(field.replace('_', ' ').title()), line)
-            self.inputs[field] = line
+            if field == "record_date":
+                date_edit = QDateEdit()
+                date_edit.setCalendarPopup(True)
+                if record:
+                    date = QDate.fromString(record.get(field, ""), "yyyy-MM-dd")
+                    date_edit.setDate(date if date.isValid() else QDate.currentDate())
+                else:
+                    date_edit.setDate(QDate.currentDate())
+                layout.addRow(QLabel(labels.get(field, field)), date_edit)
+                self.inputs[field] = date_edit
+
+            elif field == "manufacturer":
+                combo = QComboBox()
+                combo.addItem("")  # Пустой вариант по умолчанию
+                combo.addItems([
+                    "ООО \"ИКЦ Транспортные Технологии\"",
+                    "АО НТЦ \"Спецпроект\""
+                ])
+                if record:
+                    idx = combo.findText(record.get(field, ""))
+                    if idx >= 0:
+                        combo.setCurrentIndex(idx)
+                layout.addRow(QLabel(labels.get(field, field)), combo)
+                self.inputs[field] = combo
+
+            else:
+                line = QLineEdit()
+                if record:
+                    line.setText(str(record.get(field, "")))
+                layout.addRow(QLabel(labels.get(field, field)), line)
+                self.inputs[field] = line
 
         self.submit_btn = QPushButton("Сохранить")
         self.submit_btn.clicked.connect(self.submit)
@@ -78,9 +117,35 @@ class RecordDialog(QDialog):
         self.setLayout(layout)
 
     def submit(self):
-        data = {k: v.text() for k, v in self.inputs.items()}
+        data = {}
+        for k, widget in self.inputs.items():
+            if isinstance(widget, QDateEdit):
+                data[k] = widget.date().toString("yyyy-MM-dd")
+            elif isinstance(widget, QComboBox):
+                data[k] = widget.currentText().strip()
+            else:
+                data[k] = widget.text().strip()
+
+        if len(data.get("card_number", "")) != 16:
+            QMessageBox.critical(self, "Ошибка", "Номер карты должен содержать ровно 16 символов.")
+            return
+
+        # Проверка обязательных полей (все кроме comment)
+        required_fields = [
+            "record_date", "last_name", "first_name", "patronymic", "status",
+            "card_number", "organization", "manufacturer", "work_status"
+        ]
+        for field in required_fields:
+            if not data.get(field):
+                QMessageBox.critical(self, "Ошибка", f"Поле '{field}' обязательно для заполнения.")
+                return
+
         if not self.record_id:
+            if not current_user:
+                QMessageBox.critical(self, "Ошибка", "Пользователь не авторизован.")
+                return
             data["created_by"] = current_user
+
         try:
             if self.record_id:
                 response = requests.put(f"{API_URL}/records/{self.record_id}", json=data)
@@ -92,6 +157,9 @@ class RecordDialog(QDialog):
                 QMessageBox.critical(self, "Ошибка", f"Ошибка при сохранении:\n{response.text}")
         except Exception as e:
             QMessageBox.critical(self, "Ошибка", str(e))
+
+
+
 
 class MainWindow(QWidget):
     def __init__(self):
@@ -140,8 +208,8 @@ class MainWindow(QWidget):
         self.table = QTableWidget()
         self.table.setColumnCount(12)
         self.table.setHorizontalHeaderLabels([
-            "ID", "Дата", "Фамилия", "Имя", "Отчество", "Статус", "Комментарий",
-            "№ Карты", "Организация", "Производитель", "Статус работы", "Кем создано"
+            "ID", "Дата", "Фамилия", "Имя", "Отчество", "Статус","№ Карты", "Организация",
+            "Производитель", "Статус работы", "Комментарий", "Кем создано"
         ])
         layout.addWidget(self.table)
 
