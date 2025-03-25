@@ -11,25 +11,16 @@ def update_status(card_number: str, new_status: str):
         options.add_argument('--disable-gpu')
         driver = webdriver.Chrome(options=options)
 
-        driver.get("https://example.com")  # URL заменим позже
+        driver.get("http://10.78.78.251/private/default/login")
+        time.sleep(1)
 
         # --- Логин ---
-        # Пример (нужно заменить на реальное):
-        # driver.find_element(By.ID, "username").send_keys("LOGIN")
-        # driver.find_element(By.ID, "password").send_keys("PASSWORD")
-        # driver.find_element(By.ID, "login-button").click()
+        driver.find_element(By.ID, "loginform-username").send_keys("your_login")
+        driver.find_element(By.ID, "loginform-password").send_keys("your_password")
+        driver.find_element(By.XPATH, "//button[@type='submit']").click()
 
-        # --- Навигация ---
-        # переход по вкладкам, ожидания и т.д.
-
-        # --- Поиск по номеру карты ---
-        # driver.find_element(...).send_keys(card_number)
-        # ожидание результатов и изменение статуса
-
-        # --- Обновление статуса ---
-        # пример: выбрать значение из выпадающего списка или нажать кнопку
-
-        time.sleep(2)  # финальное ожидание
+        # TODO: дальнейшие шаги по переходу, поиску, изменению статуса
+        time.sleep(2)
 
     except Exception as e:
         print(f"[Selenium Error] {e}")
