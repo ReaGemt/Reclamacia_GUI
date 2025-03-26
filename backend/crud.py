@@ -1,3 +1,4 @@
+#backend/crud.py
 from .database import get_connection
 from .models import Record
 import hashlib
@@ -23,14 +24,13 @@ def create_user(login: str, password: str):
     conn.commit()
     conn.close()
 
-def get_all_records():
+def get_all_users():
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM records")
+    cursor.execute("SELECT login FROM users")
     rows = cursor.fetchall()
-    columns = [col[0] for col in cursor.description]
     conn.close()
-    return [dict(zip(columns, row)) for row in rows]
+    return [row[0] for row in rows]
 
 def create_record(record: Record):
     conn = get_connection()
@@ -73,3 +73,12 @@ def delete_record(record_id: int):
     cursor.execute("DELETE FROM records WHERE id = ?", (record_id,))
     conn.commit()
     conn.close()
+
+def get_all_records():
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM records")
+    rows = cursor.fetchall()
+    columns = [col[0] for col in cursor.description]
+    conn.close()
+    return [dict(zip(columns, row)) for row in rows]

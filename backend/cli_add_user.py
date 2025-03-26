@@ -1,7 +1,9 @@
 import sys
 import hashlib
 from getpass import getpass
-from database import get_connection
+#from database import get_connection
+#from .database import get_connection #Пишем так для ручного создания нового пользователя
+from backend.database import get_connection
 
 def hash_password(password: str) -> str:
     return hashlib.sha256(password.encode()).hexdigest()

@@ -1,13 +1,15 @@
 #backend/main.py
-
 from fastapi import FastAPI, HTTPException
+from backend.admin import admin_app  # Импортируем админ-панель
 from backend.database import init_db
 from backend.models import Record, LoginRequest, CreateUserRequest
 from backend import crud
+import sys
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import BackgroundTasks
 from pydantic import BaseModel
 from backend.selenium_worker import update_status
+
 
 app = FastAPI()
 init_db()
@@ -26,13 +28,13 @@ def authenticate_user(data: LoginRequest):
         return {"success": True}
     raise HTTPException(status_code=401, detail="Неверный логин или пароль")
 
-@app.post("/users")
-def create_user(data: CreateUserRequest):
+@app.get("/users")
+def list_users():
     try:
-        crud.create_user(data.login, data.password)
-        return {"success": True}
-    except Exception:
-        raise HTTPException(status_code=400, detail="Пользователь уже существует")
+        logins = crud.get_all_users()
+        return logins
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/records")
 def get_records():
@@ -64,3 +66,6 @@ def run_selenium(req: SeleniumRequest):
         return {"success": True}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# Монтируем админ-панель под адресом /admin
+app.mount("/admin", admin_app)

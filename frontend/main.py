@@ -1,17 +1,17 @@
 #frontend/main.py
-
 import sys
 import requests
 from PySide6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem,
     QPushButton, QHBoxLayout, QMessageBox, QDialog, QLabel, QLineEdit, QFormLayout,
-    QDateEdit, QFileDialog, QComboBox
+    QDateEdit, QFileDialog, QComboBox, QAbstractItemView
 )
-from PySide6.QtCore import QDate
+from PySide6.QtCore import QDate, QSettings
 from PySide6.QtGui import QColor
 from openpyxl import Workbook, load_workbook
+import sys
 
-API_URL = "http://127.0.0.1:8000"
+API_URL = "http://127.0.0.1:8001"
 current_user = None
 
 class LoginDialog(QDialog):
@@ -20,11 +20,11 @@ class LoginDialog(QDialog):
         self.setWindowTitle("Вход")
         layout = QFormLayout()
 
-        self.login_input = QLineEdit()
+        self.login_combo = QComboBox()
+        layout.addRow("Логин:", self.login_combo)
+
         self.password_input = QLineEdit()
         self.password_input.setEchoMode(QLineEdit.Password)
-
-        layout.addRow("Логин:", self.login_input)
         layout.addRow("Пароль:", self.password_input)
 
         self.login_btn = QPushButton("Войти")
@@ -34,9 +34,28 @@ class LoginDialog(QDialog):
         self.setLayout(layout)
         self.success = False
 
+        # Загружаем список логинов динамически
+        self.load_logins()
+
+    def load_logins(self):
+        try:
+            resp = requests.get(f"{API_URL}/users")
+            if resp.status_code == 200:
+                # Ожидаем, что сервер вернет список логинов в формате JSON, например:
+                # ["admin", "user1", "user2"]
+                logins = resp.json()
+                print("Status code:", resp.status_code)
+                print("Response text:", resp.text)
+                self.login_combo.clear()
+                self.login_combo.addItems(logins)
+            else:
+                QMessageBox.warning(self, "Ошибка", "Не удалось загрузить список логинов с сервера")
+        except Exception as e:
+            QMessageBox.warning(self, "Ошибка", f"Ошибка загрузки логинов: {e}")
+
     def try_login(self):
         global current_user
-        login = self.login_input.text().strip()
+        login = self.login_combo.currentText().strip()
         password = self.password_input.text().strip()
         if not login or not password:
             QMessageBox.warning(self, "Ошибка", "Введите логин и пароль")
@@ -234,9 +253,24 @@ class MainWindow(QWidget):
         self.table = QTableWidget()
         self.table.setColumnCount(12)
         self.table.setHorizontalHeaderLabels([
-            "ID", "Дата", "Фамилия", "Имя", "Отчество", "Статус", "№ Карты", "Организация",
-            "Производитель", "Статус работы", "Комментарий", "Кем создано"
+            "ID",  # col 0 → id
+            "Дата",  # col 1 → record_date
+            "№ Карты",  # col 2 → card_number
+            "Фамилия",  # col 3 → last_name
+            "Имя",  # col 4 → first_name
+            "Отчество",  # col 5 → patronymic
+            "Организация",  # col 6 → organization
+            "Производитель",  # col 7 → manufacturer
+            "Статус работы",  # col 8 → work_status
+            "Комментарий",  # col 9 → comment
+            "Статус",  # col 10 → status
+            "Кем создано"  # col 11 → created_by
         ])
+
+        # Настраиваем режим выделения
+        self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+
         layout.addWidget(self.table)
 
         # --- Кнопки ---
@@ -277,7 +311,7 @@ class MainWindow(QWidget):
         try:
             response = requests.get(f"{API_URL}/records")
             self.all_records = response.json()
-            statuses = sorted(set(r["status"] for r in self.all_records if r.get("status")))
+            statuses = sorted(set(r["work_status"] for r in self.all_records if r.get("work_status")))
             self.status_filter.blockSignals(True)
             self.status_filter.clear()
             self.status_filter.addItem("[Все]")
@@ -304,15 +338,26 @@ class MainWindow(QWidget):
                 rec_date = None
             if rec_date and not (date_from <= rec_date <= date_to):
                 continue
-            if status_selected != "[Все]" and record.get("status") != status_selected:
+            if status_selected != "[Все]" and record.get("work_status") != status_selected:
                 continue
             if query and not any(query in str(v).lower() for v in record.values()):
                 continue
             filtered.append(record)
 
+        # Список ключей в нужном порядке
         display_keys = [
-            "id", "record_date", "last_name", "first_name", "patronymic", "status",
-            "card_number", "organization", "manufacturer", "work_status", "comment", "created_by"
+            "id",  # col 0
+            "record_date",  # col 1
+            "card_number",  # col 2
+            "last_name",  # col 3
+            "first_name",  # col 4
+            "patronymic",  # col 5
+            "organization",  # col 6
+            "manufacturer",  # col 7
+            "work_status",  # col 8
+            "comment",  # col 9
+            "status",  # col 10
+            "created_by"  # col 11
         ]
 
         self.table.setRowCount(len(filtered))
@@ -320,6 +365,7 @@ class MainWindow(QWidget):
             row_color = status_colors.get(record.get("work_status", ""))
             for col_idx, key in enumerate(display_keys):
                 value = record.get(key, "")
+                # Если нужно добавить иконку для work_status
                 if key == "work_status":
                     icon = status_icons.get(value, "")
                     value = f"{icon} {value}"
@@ -339,10 +385,22 @@ class MainWindow(QWidget):
             QMessageBox.warning(self, "Нет выбора", "Выберите строку.")
             return
 
+        # Считываем ID из столбца 0
         record = {"id": int(self.table.item(selected, 0).text())}
+
+        # Для столбцов 1 - 11 используем следующий список ключей:
         keys = [
-            "record_date", "last_name", "first_name", "patronymic", "status",
-            "comment", "card_number", "organization", "manufacturer", "work_status", "created_by"
+            "record_date",  # col 1
+            "card_number",  # col 2
+            "last_name",  # col 3
+            "first_name",  # col 4
+            "patronymic",  # col 5
+            "organization",  # col 6
+            "manufacturer",  # col 7
+            "work_status",  # col 8
+            "comment",  # col 9
+            "status",  # col 10
+            "created_by"  # col 11
         ]
         for i, field in enumerate(keys, start=1):
             record[field] = self.table.item(selected, i).text()
