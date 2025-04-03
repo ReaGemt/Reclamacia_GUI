@@ -1,6 +1,6 @@
 #backend/main.py
 from fastapi import FastAPI, HTTPException
-from backend.admin import admin_app  # Импортируем админ-панель
+from backend.admin import admin_app, init_admin
 from backend.database import init_db
 from backend.models import Record, LoginRequest, CreateUserRequest
 from backend import crud
@@ -66,6 +66,10 @@ def run_selenium(req: SeleniumRequest):
         return {"success": True}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.on_event("startup")
+async def startup_event():
+    await init_admin()
 
 # Монтируем админ-панель под адресом /admin
 app.mount("/admin", admin_app)
