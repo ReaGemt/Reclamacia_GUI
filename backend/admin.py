@@ -1,25 +1,18 @@
 from sqladmin import Admin, ModelView
-from sqlalchemy import String, Integer
-from sqlalchemy.orm import Mapped, mapped_column
-from sqladmin.authentication import AuthenticationBackend
 from fastapi import Request
-from starlette.responses import RedirectResponse
-from backend.db import User, AdminUser  # модели перенесём в отдельный файл db.py
+from sqladmin.authentication import AuthenticationBackend
+from backend.db import User, AdminUser
 
 
 class AdminAuth(AuthenticationBackend):
     async def login(self, request: Request) -> bool:
-        form = await request.form()
-        username = form.get("username")
-        password = form.get("password")
-        # Простой вход (можно доработать хеширование и проверку)
-        return username == "admin" and password == "admin"
+        return True  # Без логина для простоты
 
     async def logout(self, request: Request) -> bool:
         return True
 
     async def authenticate(self, request: Request) -> bool:
-        return True  # Пропустить для простоты
+        return True
 
 
 class UserAdmin(ModelView, model=User):
