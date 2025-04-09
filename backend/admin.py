@@ -3,8 +3,7 @@ from fastapi import FastAPI
 from fastapi_admin.app import app as admin_app
 from fastapi_admin.providers.login import UsernamePasswordProvider
 from fastapi_admin.models import AbstractAdmin
-from fastapi_admin.resources import Model
-from fastapi_admin.site import Site
+from fastapi_admin.resources import Model  # Заменили импорт
 from tortoise import fields, models
 from tortoise.contrib.fastapi import register_tortoise
 import redis.asyncio as redis
@@ -38,6 +37,9 @@ register_tortoise(
     add_exception_handlers=True,
 )
 
+# Ресурс пользователя
+UserResource = Model(User)  # Обновлено: используем функцию Model()
+
 # Функция инициализации панели
 async def init_admin():
     redis_client = await redis.from_url("redis://localhost")
@@ -51,16 +53,10 @@ async def init_admin():
                 admin_model=Admin,
                 login_logo_url="https://example.com/logo.png",
             )
-        ],
-        site=Site(
-            name="Админка",
-            login_footer="Reclamacia Admin",
-            login_description="Вход в админ-панель",
-        ),
-        resources=[
-            Model(User),  # ← вот тут ты настраиваешь отображение
-        ],
+        ]
     )
+
+    await admin_app.register_resources([UserResource])
 
 # Запуск инициализации
 @app.on_event("startup")
