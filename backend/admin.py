@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi_admin.app import app as admin_app
 from fastapi_admin.providers.login import UsernamePasswordProvider
 from fastapi_admin.models import AbstractAdmin
-from fastapi_admin.resources import ModelResource  # ✅ исправлено
+from fastapi_admin.resources import Model  # ✅ для версии 1.0.3
 from tortoise import fields, models
 from tortoise.contrib.fastapi import register_tortoise
 import redis.asyncio as redis
@@ -37,9 +37,8 @@ register_tortoise(
     add_exception_handlers=True,
 )
 
-# Ресурс пользователя (исправлено)
-class UserResource(ModelResource):
-    model = User
+# Ресурс пользователя (в виде объекта)
+UserResource = Model(User)
 
 # Функция инициализации панели
 async def init_admin():
