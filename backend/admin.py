@@ -37,8 +37,9 @@ register_tortoise(
     add_exception_handlers=True,
 )
 
-# Ресурс пользователя
-UserResource = Model(User)
+# Ресурс пользователя как класс
+class UserResource(Model):
+    model = User
 
 # Функция инициализации панели
 async def init_admin():
