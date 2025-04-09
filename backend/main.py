@@ -1,23 +1,20 @@
 import uvicorn
-from fastapi import FastAPI
-from sqladmin import Admin
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
-from backend.db import Base
+from backend.app_instance import app
 from backend.admin import admin
+from backend.models import User
+from sqladmin import ModelView
+from sqladmin.authentication import AdminAuthenticationBackend
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker
 
-app = FastAPI()
+# Настройка БД
+DATABASE_URL = "sqlite+aiosqlite:///db.sqlite3"
+engine = create_async_engine(DATABASE_URL)
+async_session_maker = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
-# Создание асинхронного движка
-engine = create_async_engine("sqlite+aiosqlite:///./db.sqlite3")
-SessionLocal = async_sessionmaker(bind=engine)
-
-# Инициализация SQLAdmin
-admin.init_app(app, engine)
-
-@app.on_event("startup")
-async def on_start():
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+# Подключаем SQLAdmin
+admin.engine = engine
+admin.init_app(app)
 
 if __name__ == "__main__":
-    uvicorn.run("backend.main:app", host="127.0.0.1", port=8000, reload=True) 
+    uvicorn.run("backend.main:app", host="127.0.0.1", port=8000, reload=True)
