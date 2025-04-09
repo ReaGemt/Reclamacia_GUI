@@ -6,6 +6,13 @@ from sqladmin import ModelView
 from sqladmin.authentication import AdminAuthenticationBackend
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
+from fastapi import FastAPI
+from backend.admin import setup_admin
+
+app = FastAPI()
+
+# Инициализация админки
+setup_admin(app)
 
 # Настройка БД
 DATABASE_URL = "sqlite+aiosqlite:///db.sqlite3"
