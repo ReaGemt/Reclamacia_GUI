@@ -37,7 +37,7 @@ register_tortoise(
     add_exception_handlers=True,
 )
 
-# Ресурс пользователя как класс
+# Ресурс пользователя (исправлено)
 class UserResource(Model):
     model = User
 
