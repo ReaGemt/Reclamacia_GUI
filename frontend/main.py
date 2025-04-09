@@ -11,7 +11,7 @@ from PySide6.QtGui import QColor
 from openpyxl import Workbook, load_workbook
 import sys
 
-API_URL = "http://127.0.0.1:8001"
+API_URL = "http://127.0.0.1:8000"
 current_user = None
 
 class LoginDialog(QDialog):

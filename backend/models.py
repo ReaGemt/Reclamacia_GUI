@@ -1,3 +1,7 @@
+# backend/models.py
+
+from sqlalchemy import Column, Integer, String
+from backend.database import Base
 from pydantic import BaseModel
 
 class Record(BaseModel):
@@ -21,3 +25,10 @@ class LoginRequest(BaseModel):
 class CreateUserRequest(BaseModel):
     login: str
     password: str
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True)
+    login = Column(String, unique=True, nullable=False)
+    password_hash = Column(String, nullable=False)
