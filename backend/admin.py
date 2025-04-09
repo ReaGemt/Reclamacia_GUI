@@ -1,30 +1,26 @@
-from sqladmin import Admin
-from sqladmin.authentication import AuthenticationBackend
+from sqladmin import Admin, ModelView
 from starlette.requests import Request
+from sqladmin.authentication import AuthenticationBackend
 
-from backend.database import engine  # ваш SQLAlchemy engine
-from backend.models import User  # пример модели
+from backend.models import User
 
-class AdminAuth(AuthenticationBackend):
+
+class SimpleAuth(AuthenticationBackend):
     async def login(self, request: Request) -> bool:
         form = await request.form()
-        username = form.get("username")
-        password = form.get("password")
-        if username == "admin" and password == "admin":
-            request.session.update({"token": "secure-token"})
-            return True
-        return False
-
-    async def logout(self, request: Request) -> bool:
-        request.session.clear()
-        return True
+        return form.get("username") == "admin" and form.get("password") == "admin"
 
     async def authenticate(self, request: Request) -> bool:
-        return "token" in request.session
+        return True
 
-# Здесь app должен быть передан из основного FastAPI-приложения
-admin = None
+    async def logout(self, request: Request) -> bool:
+        return True
 
-def setup_admin(app):
-    global admin
-    admin = Admin(app=app, engine=engine, authentication_backend=AdminAuth())
+
+class UserAdmin(ModelView, model=User):
+    column_list = [User.id, User.login]
+
+
+def setup_admin(app, engine):
+    admin = Admin(app=app, engine=engine, authentication_backend=SimpleAuth())
+    admin.add_view(UserAdmin)
