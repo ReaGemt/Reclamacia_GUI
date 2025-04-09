@@ -1,75 +1,23 @@
-#backend/main.py
-from fastapi import FastAPI, HTTPException
-from backend.admin import admin_app, init_admin
-from backend.database import init_db
-from backend.models import Record, LoginRequest, CreateUserRequest
-from backend import crud
-import sys
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi import BackgroundTasks
-from pydantic import BaseModel
-from backend.selenium_worker import update_status
-
+import uvicorn
+from fastapi import FastAPI
+from sqladmin import Admin
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+from backend.db import Base
+from backend.admin import admin
 
 app = FastAPI()
-init_db()
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Создание асинхронного движка
+engine = create_async_engine("sqlite+aiosqlite:///./db.sqlite3")
+SessionLocal = async_sessionmaker(bind=engine)
 
-@app.post("/auth")
-def authenticate_user(data: LoginRequest):
-    if crud.check_user_credentials(data.login, data.password):
-        return {"success": True}
-    raise HTTPException(status_code=401, detail="Неверный логин или пароль")
-
-@app.get("/users")
-def list_users():
-    try:
-        logins = crud.get_all_users()
-        return logins
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/records")
-def get_records():
-    return crud.get_all_records()
-
-@app.post("/records")
-def add_record(record: Record):
-    return crud.create_record(record)
-
-@app.put("/records/{record_id}")
-def edit_record(record_id: int, record: Record):
-    crud.update_record(record_id, record)
-    return {"success": True}
-
-@app.delete("/records/{record_id}")
-def delete_record(record_id: int):
-    crud.delete_record(record_id)
-    return {"success": True}
-
-class SeleniumRequest(BaseModel):
-    card_number: str
-    new_status: str
-
-@app.post("/selenium")
-def run_selenium(req: SeleniumRequest):
-    print(">>> selenium endpoint РАБОТАЕТ")
-    try:
-        update_status(req.card_number, req.new_status)
-        return {"success": True}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+# Инициализация SQLAdmin
+admin.init_app(app, engine)
 
 @app.on_event("startup")
-async def startup_event():
-    await init_admin()
+async def on_start():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
 
-# Монтируем админ-панель под адресом /admin
-app.mount("/admin", admin_app)
+if __name__ == "__main__":
+    uvicorn.run("backend.main:app", host="127.0.0.1", port=8000, reload=True) 
