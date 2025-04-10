@@ -6,10 +6,13 @@ from PySide6.QtWidgets import (
     QPushButton, QHBoxLayout, QMessageBox, QDialog, QLabel, QLineEdit, QFormLayout,
     QDateEdit, QFileDialog, QComboBox, QAbstractItemView
 )
-from PySide6.QtCore import QDate, QSettings
-from PySide6.QtGui import QColor
+from PySide6.QtCore import Qt, QDate, QSettings
+from PySide6.QtGui import QColor, QIcon
 from openpyxl import Workbook, load_workbook
 import sys
+from PySide6.QtGui import QPixmap
+import os
+os.chdir(os.path.dirname(__file__))
 
 API_URL = "http://127.0.0.1:8000"
 current_user = None
@@ -18,21 +21,36 @@ class LoginDialog(QDialog):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Вход")
-        layout = QFormLayout()
+        self.setWindowIcon(QIcon("frontend/icon.ico"))
+        layout = QVBoxLayout()
 
+        # --- ЛОГОТИП ---
+        logo_label = QLabel()
+        pixmap = QPixmap(r"frontend/logo.png")
+
+        if not pixmap.isNull():
+            logo_label.setPixmap(pixmap.scaledToWidth(300, Qt.SmoothTransformation))
+            logo_label.setAlignment(Qt.AlignCenter)
+            layout.addWidget(logo_label)
+        else:
+            print("❌ Логотип не загружен. Проверь путь: frontend/logo.png")
+
+        # --- ФОРМА ЛОГИНА ---
+        form_layout = QFormLayout()
         self.login_combo = QComboBox()
-        layout.addRow("Логин:", self.login_combo)
+        form_layout.addRow("Логин:", self.login_combo)
 
         self.password_input = QLineEdit()
         self.password_input.setEchoMode(QLineEdit.Password)
-        layout.addRow("Пароль:", self.password_input)
+        form_layout.addRow("Пароль:", self.password_input)
+
+        layout.addLayout(form_layout)
 
         self.login_btn = QPushButton("Войти")
         self.login_btn.clicked.connect(self.try_login)
         layout.addWidget(self.login_btn)
 
         self.setLayout(layout)
-        self.success = False
 
         # Загружаем список логинов динамически
         self.load_logins()
@@ -91,6 +109,7 @@ class RecordDialog(QDialog):
     def __init__(self, parent=None, record=None):
         super().__init__(parent)
         self.setWindowTitle("Редактировать запись" if record else "Добавить запись")
+        self.setWindowIcon(QIcon("frontend/icon.ico"))
         self.record_id = record.get("id") if record else None
 
         layout = QFormLayout()
@@ -209,7 +228,8 @@ class RecordDialog(QDialog):
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Reclamacia GUI")
+        self.setWindowTitle("Рекламация карт СКЗИ")
+        self.setWindowIcon(QIcon("frontend/icon.ico"))
         self.setMinimumSize(1000, 600)
 
         layout = QVBoxLayout()
@@ -493,9 +513,11 @@ class MainWindow(QWidget):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+    app.setWindowIcon(QIcon("frontend/icon.ico"))
     login_dialog = LoginDialog()
     if login_dialog.exec() != QDialog.DialogCode.Accepted or not login_dialog.success:
         sys.exit()
     window = MainWindow()
     window.show()
     sys.exit(app.exec())
+
