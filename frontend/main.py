@@ -329,6 +329,29 @@ class MainWindow(QWidget):
         layout.addLayout(btn_layout)
         self.load_data()
 
+        # Оптимизация UI окна
+        self.resize(1400, 900)  # Увеличиваем размер
+        screen = QApplication.primaryScreen()
+        screen_geometry = screen.geometry()
+        frame_geometry = self.frameGeometry()
+        frame_geometry.moveCenter(screen_geometry.center())
+        self.move(frame_geometry.topLeft())
+
+        # Растянуть последнюю колонку и авторазмер остальных
+        self.table.horizontalHeader().setStretchLastSection(True)
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+
+        # Небольшой стиль
+        self.setStyleSheet("""
+            QPushButton {
+                padding: 6px;
+                font-weight: bold;
+            }
+            QTableWidget::item {
+                padding: 4px;
+            }
+        """)
+
     def load_data(self):
         try:
             response = requests.get(f"{API_URL}/records")
