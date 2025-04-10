@@ -423,11 +423,31 @@ class MainWindow(QWidget):
                 self.table.setItem(row_idx, col_idx, item)
 
     def adjust_table(self):
-        self.table.resizeColumnsToContents()
+        header = self.table.horizontalHeader()
+
+        # Все на Interactive
+        for i in range(self.table.columnCount()):
+            header.setSectionResizeMode(i, QHeaderView.Interactive)
+
+        # Ручная ширина для ключевых колонок
+        self.table.setColumnWidth(0, 10)  # ID
+        self.table.setColumnWidth(1, 85)  # Дата
+        self.table.setColumnWidth(2, 180)  # № Карты
+        self.table.setColumnWidth(3, 120)  # Фамилия
+        self.table.setColumnWidth(4, 100)  # Имя
+        self.table.setColumnWidth(5, 110)  # Отчество
+        self.table.setColumnWidth(8, 110)  # Статус работы
+        self.table.setColumnWidth(10, 100)  # Статус
+
+        # Автовысота строк
         self.table.resizeRowsToContents()
-        self.table.horizontalHeader().setSectionResizeMode(6, QHeaderView.Stretch)  # организация
-        self.table.horizontalHeader().setSectionResizeMode(7, QHeaderView.Stretch)  # производитель
-        self.table.horizontalHeader().setSectionResizeMode(9, QHeaderView.Stretch)  # комментарий
+
+        # Растягиваем "длинные" поля
+        for col in [6, 7, 9, 11]:  # организация, производитель, комментарий, кем создано
+            header.setSectionResizeMode(col, QHeaderView.Stretch)
+
+        # 5. Автовысота строк (по содержимому)
+        self.table.resizeRowsToContents()
 
     def open_add_dialog(self):
         dialog = RecordDialog(self)
