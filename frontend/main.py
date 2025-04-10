@@ -424,30 +424,34 @@ class MainWindow(QWidget):
 
     def adjust_table(self):
         header = self.table.horizontalHeader()
+        settings = QSettings("MyCompany", "ReclamaciaApp")
 
-        # Все на Interactive
+        settings.beginGroup(f"column_widths/{current_user}")
+        for i in range(self.table.columnCount()):
+            width = settings.value(f"col_{i}", type=int)
+            if width:
+                self.table.setColumnWidth(i, width)
+            else:
+                header.setSectionResizeMode(i, QHeaderView.ResizeToContents)
+        settings.endGroup()
+
         for i in range(self.table.columnCount()):
             header.setSectionResizeMode(i, QHeaderView.Interactive)
 
-        # Ручная ширина для ключевых колонок
-        self.table.setColumnWidth(0, 10)  # ID
-        self.table.setColumnWidth(1, 85)  # Дата
-        self.table.setColumnWidth(2, 180)  # № Карты
-        self.table.setColumnWidth(3, 120)  # Фамилия
-        self.table.setColumnWidth(4, 100)  # Имя
-        self.table.setColumnWidth(5, 110)  # Отчество
-        self.table.setColumnWidth(8, 110)  # Статус работы
+        self.table.setColumnWidth(0, 10)    # ID
+        self.table.setColumnWidth(1, 85)    # Дата
+        self.table.setColumnWidth(2, 180)   # № Карты
+        self.table.setColumnWidth(3, 120)   # Фамилия
+        self.table.setColumnWidth(4, 100)   # Имя
+        self.table.setColumnWidth(5, 110)   # Отчество
+        self.table.setColumnWidth(8, 110)   # Статус работы
         self.table.setColumnWidth(10, 100)  # Статус
 
-        # Автовысота строк
-        self.table.resizeRowsToContents()
-
-        # Растягиваем "длинные" поля
-        for col in [6, 7, 9, 11]:  # организация, производитель, комментарий, кем создано
+        for col in [6, 7, 9, 11]:
             header.setSectionResizeMode(col, QHeaderView.Stretch)
 
-        # 5. Автовысота строк (по содержимому)
         self.table.resizeRowsToContents()
+
 
     def open_add_dialog(self):
         dialog = RecordDialog(self)
