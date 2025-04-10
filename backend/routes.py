@@ -1,3 +1,4 @@
+import logging
 from fastapi import APIRouter, HTTPException
 from sqlalchemy.future import select
 from sqlalchemy import update, delete
@@ -6,67 +7,97 @@ from backend.database import async_session_maker
 from fastapi.responses import JSONResponse
 
 router = APIRouter()
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("routes")
 
 
 @router.get("/users")
 async def get_user_logins():
-    async with async_session_maker() as session:
-        result = await session.execute(select(User.login))
-        return [row[0] for row in result.fetchall()]
+    try:
+        async with async_session_maker() as session:
+            result = await session.execute(select(User.login))
+            return [row[0] for row in result.fetchall()]
+    except Exception as e:
+        logger.exception("Ошибка при получении логинов пользователей")
+        raise HTTPException(status_code=500, detail="Не удалось получить список пользователей")
 
 
 @router.post("/auth")
 async def auth_user(request: LoginRequest):
-    async with async_session_maker() as session:
-        result = await session.execute(select(User).where(User.login == request.login))
-        user = result.scalar_one_or_none()
-        if user and user.password_hash == request.password:  # Тут пока без хэша
-            return {"message": "Authenticated"}
-        raise HTTPException(status_code=401, detail="Неверный логин или пароль")
+    try:
+        async with async_session_maker() as session:
+            result = await session.execute(select(User).where(User.login == request.login))
+            user = result.scalar_one_or_none()
+            if user and user.password_hash == request.password:
+                return {"message": "Успешная аутентификация"}
+            raise HTTPException(status_code=401, detail="Неверный логин или пароль")
+    except Exception as e:
+        logger.exception("Ошибка при аутентификации")
+        raise HTTPException(status_code=500, detail="Ошибка сервера при попытке аутентификации")
 
 
 @router.get("/records")
 async def get_records():
-    async with async_session_maker() as session:
-        result = await session.execute(select(RecordModel))
-        records = result.scalars().all()
-        return [r.__dict__ for r in records]
+    try:
+        async with async_session_maker() as session:
+            result = await session.execute(select(RecordModel))
+            records = result.scalars().all()
+            return [r.__dict__ for r in records]
+    except Exception as e:
+        logger.exception("Ошибка при получении записей")
+        raise HTTPException(status_code=500, detail="Не удалось получить записи")
 
 
 @router.post("/records")
 async def create_record(record: Record):
-    async with async_session_maker() as session:
-        new_record = RecordModel(**record.dict(exclude={"id"}))
-        session.add(new_record)
-        await session.commit()
-        return {"message": "Record created"}
+    try:
+        async with async_session_maker() as session:
+            new_record = RecordModel(**record.dict(exclude={"id"}))
+            session.add(new_record)
+            await session.commit()
+            return {"message": "Запись создана"}
+    except Exception as e:
+        logger.exception("Ошибка при создании записи")
+        raise HTTPException(status_code=500, detail="Не удалось создать запись")
 
 
 @router.put("/records/{record_id}")
 async def update_record(record_id: int, record: Record):
-    async with async_session_maker() as session:
-        stmt = update(RecordModel).where(RecordModel.id == record_id).values(**record.dict(exclude={"id"}))
-        result = await session.execute(stmt)
-        await session.commit()
-        if result.rowcount == 0:
-            raise HTTPException(status_code=404, detail="Record not found")
-        return {"message": "Record updated"}
+    try:
+        async with async_session_maker() as session:
+            stmt = update(RecordModel).where(RecordModel.id == record_id).values(**record.dict(exclude={"id"}))
+            result = await session.execute(stmt)
+            await session.commit()
+            if result.rowcount == 0:
+                raise HTTPException(status_code=404, detail="Запись не найдена")
+            return {"message": "Запись обновлена"}
+    except Exception as e:
+        logger.exception("Ошибка при обновлении записи")
+        raise HTTPException(status_code=500, detail="Не удалось обновить запись")
 
 
 @router.delete("/records/{record_id}")
 async def delete_record(record_id: int):
-    async with async_session_maker() as session:
-        stmt = delete(RecordModel).where(RecordModel.id == record_id)
-        result = await session.execute(stmt)
-        await session.commit()
-        if result.rowcount == 0:
-            raise HTTPException(status_code=404, detail="Record not found")
-        return {"message": "Record deleted"}
+    try:
+        async with async_session_maker() as session:
+            stmt = delete(RecordModel).where(RecordModel.id == record_id)
+            result = await session.execute(stmt)
+            await session.commit()
+            if result.rowcount == 0:
+                raise HTTPException(status_code=404, detail="Запись не найдена")
+            return {"message": "Запись удалена"}
+    except Exception as e:
+        logger.exception("Ошибка при удалении записи")
+        raise HTTPException(status_code=500, detail="Не удалось удалить запись")
 
 
 @router.post("/selenium")
 async def update_status_via_selenium(data: dict):
-    card_number = data.get("card_number")
-    new_status = data.get("new_status")
-    print(f"[Selenium-мок] Обновляем статус {card_number} → {new_status}")
-    return JSONResponse(content={"message": "Selenium status updated"})
+    try:
+        card_number = data.get("card_number")
+        new_status = data.get("new_status")
+        logger.info(f"[Selenium-мок] Обновляем статус {card_number} → {new_status}")
+        return JSONResponse(content={"message": "Статус обновлён (мок)"})
+    except Exception as e:
+        logger.exception("Ошибка при обновлении статуса через Selenium")
+        raise HTTPException(status_code=500, detail="Ошибка при обновлении статуса через Selenium")
