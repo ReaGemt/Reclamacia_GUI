@@ -11,6 +11,8 @@ from PySide6.QtGui import QColor, QIcon
 from openpyxl import Workbook, load_workbook
 import sys
 from PySide6.QtGui import QPixmap
+from PySide6.QtWidgets import QSplashScreen
+from PySide6.QtCore import QTimer
 import os
 os.chdir(os.path.dirname(__file__))
 
@@ -20,20 +22,22 @@ current_user = None
 class LoginDialog(QDialog):
     def __init__(self):
         super().__init__()
+        self.success = False
         self.setWindowTitle("Вход")
-        self.setWindowIcon(QIcon("frontend/icon.ico"))
+        self.setWindowIcon(QIcon("icon.ico"))
         layout = QVBoxLayout()
 
         # --- ЛОГОТИП ---
         logo_label = QLabel()
-        pixmap = QPixmap(r"frontend/logo.png")
+        logo_label = QLabel()
+        pixmap = QPixmap(r"logo.png")
 
         if not pixmap.isNull():
             logo_label.setPixmap(pixmap.scaledToWidth(300, Qt.SmoothTransformation))
             logo_label.setAlignment(Qt.AlignCenter)
             layout.addWidget(logo_label)
         else:
-            print("❌ Логотип не загружен. Проверь путь: frontend/logo.png")
+            print("❌ Логотип не загружен. Проверь путь: logo.png")
 
         # --- ФОРМА ЛОГИНА ---
         form_layout = QFormLayout()
@@ -109,7 +113,7 @@ class RecordDialog(QDialog):
     def __init__(self, parent=None, record=None):
         super().__init__(parent)
         self.setWindowTitle("Редактировать запись" if record else "Добавить запись")
-        self.setWindowIcon(QIcon("frontend/icon.ico"))
+        self.setWindowIcon(QIcon("icon.ico"))
         self.record_id = record.get("id") if record else None
 
         layout = QFormLayout()
@@ -229,7 +233,7 @@ class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Рекламация карт СКЗИ")
-        self.setWindowIcon(QIcon("frontend/icon.ico"))
+        self.setWindowIcon(QIcon("icon.ico"))
         self.setMinimumSize(1000, 600)
 
         layout = QVBoxLayout()
@@ -513,11 +517,48 @@ class MainWindow(QWidget):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    app.setWindowIcon(QIcon("frontend/icon.ico"))
-    login_dialog = LoginDialog()
-    if login_dialog.exec() != QDialog.DialogCode.Accepted or not login_dialog.success:
-        sys.exit()
-    window = MainWindow()
-    window.show()
+    app.setWindowIcon(QIcon("icon.ico"))
+
+    # --- Сплэш-экран ---
+    splash = QSplashScreen(QPixmap("logo.png"))
+    splash.setWindowFlag(Qt.WindowStaysOnTopHint)
+    splash.show()
+    splash.showMessage("Загрузка...", Qt.AlignBottom | Qt.AlignCenter, Qt.white)
+
+
+    def start_after_loading():
+        print("⏳ Старт загрузки...")
+
+        try:
+            resp = requests.get(f"{API_URL}/users", timeout=5)
+            print(f"✅ Ответ от API: {resp.status_code}")
+
+            if resp.status_code == 200:
+                splash.close()
+                print("📥 Открываем окно логина...")
+
+                login_dialog = LoginDialog()
+                result = login_dialog.exec()
+                print(f"👤 LoginDialog.exec() вернул: {result}, success: {getattr(login_dialog, 'success', None)}")
+
+                if result != QDialog.DialogCode.Accepted or not login_dialog.success:
+                    print("⛔️ Вход не выполнен")
+                    sys.exit()
+
+                print("🚀 Запуск MainWindow...")
+                global window
+                window = MainWindow()
+                window.show()
+
+            else:
+                splash.showMessage("⚠️ Ошибка загрузки данных с сервера.", Qt.AlignBottom | Qt.AlignCenter, Qt.red)
+                QTimer.singleShot(3000, app.quit)
+        except Exception as e:
+            splash.showMessage(f"❌ Ошибка подключения: {e}", Qt.AlignBottom | Qt.AlignCenter, Qt.red)
+            print(f"❌ Exception: {e}")
+            QTimer.singleShot(3000, app.quit)
+
+    QTimer.singleShot(100, start_after_loading)  # запускаем чуть позже, чтобы splash успел отобразиться
+
     sys.exit(app.exec())
 
