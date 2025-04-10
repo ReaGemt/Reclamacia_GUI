@@ -1,19 +1,17 @@
 #frontend/main.py
 import sys
+import os
 import requests
 from PySide6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem,
     QPushButton, QHBoxLayout, QMessageBox, QDialog, QLabel, QLineEdit, QFormLayout,
     QDateEdit, QFileDialog, QComboBox, QAbstractItemView
 )
-from PySide6.QtCore import Qt, QDate, QSettings
-from PySide6.QtGui import QColor, QIcon
+from PySide6.QtCore import Qt, QDate, QSettings, QTimer
+from PySide6.QtGui import QColor, QIcon, QPixmap
 from openpyxl import Workbook, load_workbook
-import sys
-from PySide6.QtGui import QPixmap
-from PySide6.QtWidgets import QSplashScreen
-from PySide6.QtCore import QTimer
-import os
+from PySide6.QtWidgets import QSplashScreen, QHeaderView
+
 os.chdir(os.path.dirname(__file__))
 
 API_URL = "http://127.0.0.1:8000"
