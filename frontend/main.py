@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
     QPushButton, QHBoxLayout, QMessageBox, QDialog, QLabel, QLineEdit, QFormLayout,
     QDateEdit, QFileDialog, QComboBox, QAbstractItemView
 )
-from PySide6.QtCore import Qt, QDate, QSettings, QTimer
+from PySide6.QtCore import Qt, QDate, QSettings, QTimer, QSize
 from PySide6.QtGui import QColor, QIcon, QPixmap
 from openpyxl import Workbook, load_workbook
 from PySide6.QtWidgets import QSplashScreen, QHeaderView
@@ -369,55 +369,65 @@ class MainWindow(QWidget):
     def search_records(self):
         self.apply_filters(self.all_records)
 
-    def apply_filters(self, records):
+    def apply_filters(self, records=None):
+        if records is None:
+            records = self.all_records
+
+        filtered = self.filter_records(records)
+        self.render_table(filtered)
+        self.adjust_table()
+
+    def filter_records(self, records):
         query = self.search_input.text().strip().lower()
         date_from = self.date_from.date().toPython()
         date_to = self.date_to.date().toPython()
         status_selected = self.status_filter.currentText()
 
-        filtered = []
-        for record in records:
+        result = []
+        for r in records:
             try:
-                rec_date = QDate.fromString(record["record_date"], "yyyy-MM-dd").toPython()
+                rec_date = QDate.fromString(r["record_date"], "yyyy-MM-dd").toPython()
             except:
                 rec_date = None
+
             if rec_date and not (date_from <= rec_date <= date_to):
                 continue
-            if status_selected != "[Все]" and record.get("work_status") != status_selected:
+            if status_selected != "[Все]" and r.get("work_status") != status_selected:
                 continue
-            if query and not any(query in str(v).lower() for v in record.values()):
+            if query and not any(query in str(v).lower() for v in r.values()):
                 continue
-            filtered.append(record)
+            result.append(r)
 
-        # Список ключей в нужном порядке
-        display_keys = [
-            "id",  # col 0
-            "record_date",  # col 1
-            "card_number",  # col 2
-            "last_name",  # col 3
-            "first_name",  # col 4
-            "patronymic",  # col 5
-            "organization",  # col 6
-            "manufacturer",  # col 7
-            "work_status",  # col 8
-            "comment",  # col 9
-            "status",  # col 10
-            "created_by"  # col 11
+        print(f"🔎 Отфильтровано записей: {len(result)}")
+        return result
+
+    def render_table(self, records):
+        self.table.setRowCount(len(records))
+        keys = [
+            "id", "record_date", "card_number", "last_name", "first_name",
+            "patronymic", "organization", "manufacturer", "work_status",
+            "comment", "status", "created_by"
         ]
 
-        self.table.setRowCount(len(filtered))
-        for row_idx, record in enumerate(filtered):
+        for row_idx, record in enumerate(records):
             row_color = status_colors.get(record.get("work_status", ""))
-            for col_idx, key in enumerate(display_keys):
-                value = record.get(key, "")
-                # Если нужно добавить иконку для work_status
+            for col_idx, key in enumerate(keys):
+                val = record.get(key, "")
                 if key == "work_status":
-                    icon = status_icons.get(value, "")
-                    value = f"{icon} {value}"
-                item = QTableWidgetItem(str(value))
+                    val = f"{status_icons.get(val, '')} {val}"
+                item = QTableWidgetItem(str(val))
+                item.setToolTip(str(val))
+                item.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
                 if row_color:
                     item.setBackground(row_color)
                 self.table.setItem(row_idx, col_idx, item)
+
+    def adjust_table(self):
+        self.table.resizeColumnsToContents()
+        self.table.resizeRowsToContents()
+        self.table.horizontalHeader().setSectionResizeMode(6, QHeaderView.Stretch)  # организация
+        self.table.horizontalHeader().setSectionResizeMode(7, QHeaderView.Stretch)  # производитель
+        self.table.horizontalHeader().setSectionResizeMode(9, QHeaderView.Stretch)  # комментарий
 
     def open_add_dialog(self):
         dialog = RecordDialog(self)
