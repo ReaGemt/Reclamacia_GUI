@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from sqlalchemy.future import select
 from sqlalchemy import update, delete
-from backend.models import User, Record, LoginRequest
+from backend.models import User, RecordModel, Record, LoginRequest
 from backend.database import async_session_maker
 from fastapi.responses import JSONResponse
 
@@ -28,7 +28,7 @@ async def auth_user(request: LoginRequest):
 @router.get("/records")
 async def get_records():
     async with async_session_maker() as session:
-        result = await session.execute(select(Record))
+        result = await session.execute(select(RecordModel))
         records = result.scalars().all()
         return [r.__dict__ for r in records]
 
@@ -36,7 +36,7 @@ async def get_records():
 @router.post("/records")
 async def create_record(record: Record):
     async with async_session_maker() as session:
-        new_record = Record(**record.dict(exclude={"id"}))
+        new_record = RecordModel(**record.dict(exclude={"id"}))
         session.add(new_record)
         await session.commit()
         return {"message": "Record created"}
@@ -45,7 +45,7 @@ async def create_record(record: Record):
 @router.put("/records/{record_id}")
 async def update_record(record_id: int, record: Record):
     async with async_session_maker() as session:
-        stmt = update(Record).where(Record.id == record_id).values(**record.dict(exclude={"id"}))
+        stmt = update(RecordModel).where(RecordModel.id == record_id).values(**record.dict(exclude={"id"}))
         result = await session.execute(stmt)
         await session.commit()
         if result.rowcount == 0:
@@ -56,7 +56,7 @@ async def update_record(record_id: int, record: Record):
 @router.delete("/records/{record_id}")
 async def delete_record(record_id: int):
     async with async_session_maker() as session:
-        stmt = delete(Record).where(Record.id == record_id)
+        stmt = delete(RecordModel).where(RecordModel.id == record_id)
         result = await session.execute(stmt)
         await session.commit()
         if result.rowcount == 0:
