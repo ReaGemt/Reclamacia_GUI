@@ -193,7 +193,7 @@ class RecordDialog(QDialog):
             data["status"] = "Создано"
         else:
             data["status"] = "Изменено"
-
+            data["created_by"] = current_user
         try:
             if self.record_id:
                 response = requests.put(f"{API_URL}/records/{self.record_id}", json=data)

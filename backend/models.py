@@ -1,10 +1,12 @@
+# backend/models.py
+
 from sqlalchemy import Column, Integer, String
 from backend.database import Base
 from pydantic import BaseModel
 
 
 # SQLAlchemy ORM-модель
-class RecordORM(Base):
+class RecordModel(Base):
     __tablename__ = "records"
 
     id = Column(Integer, primary_key=True)
@@ -21,7 +23,7 @@ class RecordORM(Base):
     created_by = Column(String)
 
 
-# Pydantic модель
+# Pydantic-модель
 class Record(BaseModel):
     id: int | None = None
     record_date: str
@@ -36,7 +38,11 @@ class Record(BaseModel):
     work_status: str
     created_by: str
 
+    class Config:
+        from_attributes = True
 
+
+# Запросы
 class LoginRequest(BaseModel):
     login: str
     password: str
@@ -47,6 +53,7 @@ class CreateUserRequest(BaseModel):
     password: str
 
 
+# Пользователь (SQLAlchemy)
 class User(Base):
     __tablename__ = "users"
 
