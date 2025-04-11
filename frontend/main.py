@@ -616,6 +616,7 @@ class MainWindow(QWidget):
         except Exception as e:
             QMessageBox.critical(self, "Ошибка", f"Не удалось экспортировать:\n{e}")
 
+
     def import_from_excel(self):
         path, _ = QFileDialog.getOpenFileName(self, "Выберите Excel файл", "", "Excel (*.xlsx *.xls)")
         if not path:
