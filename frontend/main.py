@@ -2,6 +2,8 @@
 import sys
 import os
 import requests
+import datetime
+import subprocess
 from PySide6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem,
     QPushButton, QHBoxLayout, QMessageBox, QDialog, QLabel, QLineEdit, QFormLayout,
@@ -11,6 +13,9 @@ from PySide6.QtCore import Qt, QDate, QSettings, QTimer, QSize
 from PySide6.QtGui import QColor, QIcon, QPixmap
 from openpyxl import Workbook, load_workbook
 from PySide6.QtWidgets import QSplashScreen, QHeaderView
+from docx import Document
+from docx.shared import Pt
+
 
 os.chdir(os.path.dirname(__file__))
 
@@ -162,7 +167,15 @@ class RecordDialog(QDialog):
 
             elif field == "work_status":
                 combo = QComboBox()
-                combo.addItems(["Новый", "В работе", "Ожидает", "Закрыт"])
+                combo.addItems([
+                    "Новый",
+                    "Рабочая",
+                    "Гарантия",
+                    "Не гарантия",
+                    "Спецпроект",
+                    "Спецпроект гарантия",
+                    "Спецпроект не гарантия"
+                ])
                 if record:
                     idx = combo.findText(record.get(field, ""))
                     if idx >= 0:
@@ -352,50 +365,89 @@ class MainWindow(QWidget):
             }
         """)
 
-        self.response_template_combo = QComboBox()
-        self.response_template_combo.addItems(["Рабочая", "Гарантийная"])
-        btn_layout.addWidget(self.response_template_combo)
-
-        self.generate_response_btn = QPushButton("Сформировать ответ")
-        self.generate_response_btn.clicked.connect(self.generate_response)
+        self.generate_response_btn = QPushButton("Сформировать ответ (Word)")
+        self.generate_response_btn.clicked.connect(self.generate_word_response)
         btn_layout.addWidget(self.generate_response_btn)
 
-    def generate_response(self):
+    def generate_word_response(self):
+        def replace_placeholders(doc, data):
+            def replace_in_runs(runs):
+                for run in runs:
+                    for key, val in data.items():
+                        placeholder = f"{{{{{key}}}}}"
+                        if placeholder in run.text:
+                            run.text = run.text.replace(placeholder, val)
+
+            for p in doc.paragraphs:
+                replace_in_runs(p.runs)
+
+            for table in doc.tables:
+                for row in table.rows:
+                    for cell in row.cells:
+                        for p in cell.paragraphs:
+                            replace_in_runs(p.runs)
+
+            for section in doc.sections:
+                for p in section.header.paragraphs:
+                    replace_in_runs(p.runs)
+                for p in section.footer.paragraphs:
+                    replace_in_runs(p.runs)
+
         selected = self.table.currentRow()
         if selected == -1:
             QMessageBox.warning(self, "Нет выбора", "Выберите строку.")
             return
 
         record = {
-            "last_name": self.table.item(selected, 3).text(),
-            "first_name": self.table.item(selected, 4).text(),
-            "patronymic": self.table.item(selected, 5).text(),
-            "card_number": self.table.item(selected, 2).text(),
-            "record_date": self.table.item(selected, 1).text()
+            "Фамилия": self.table.item(selected, 3).text(),
+            "Имя": self.table.item(selected, 4).text(),
+            "Отчество": self.table.item(selected, 5).text(),
+            "НомерКарты": self.table.item(selected, 2).text(),
+            "Дата": self.table.item(selected, 1).text(),
+            "Статус": self.table.item(selected, 8).text()
         }
 
-        template_type = self.response_template_combo.currentText()
+        status = record["Статус"].lower()
 
-        templates = {
-            "Рабочая": f"""
-    Уважаемый(ая) {record['last_name']} {record['first_name']} {record['patronymic']}!
+        if "рабоч" in status:
+            template_file = "рабочая.docx"
+        elif "гарант" in status:
+            template_file = "гарантия.docx"
+        elif "не гаран" in status:
+            template_file = "не_гарантия.docx"
+        else:
+            QMessageBox.information(self, "Нет шаблона", f"Нет шаблона для статуса: {record['Статус']}")
+            return
 
-    В ответ на Ваше обращение от {record['record_date']} г. о неисправности карты тахографа {record['card_number']} сообщаем, что в результате проведенной экспертизы установлено - карта работоспособна.
+        template_path = os.path.join("responses", template_file)
+        if not os.path.exists(template_path):
+            QMessageBox.critical(self, "Ошибка", f"Шаблон не найден: {template_path}")
+            return
 
-    На основании вышеизложенного, карта тахографа признана рабочей.
-    Рекомендуем обратиться в мастерскую для проверки тахографа.
-    """,
-            "Гарантийная": f"""
-    Уважаемый(ая) {record['last_name']} {record['first_name']} {record['patronymic']}!
+        try:
+            doc = Document(template_path)
+            replace_placeholders(doc, record)
 
-    В ответ на Ваше обращение от {record['record_date']} г. о неисправности карты тахографа {record['card_number']} сообщаем, что в карте обнаружена неисправность, связанная с заводским браком.
+            save_path = QFileDialog.getSaveFileName(
+                self,
+                "Сохранить как",
+                f"Ответ_{record['НомерКарты']}.docx",
+                "Word (*.docx)"
+            )[0]
+            if not save_path:
+                return
 
-    Карта может быть заменена на новую по гарантии. Направьте заявление на замену установленным способом.
-    """
-        }
+            doc.save(save_path)
 
-        response_text = templates.get(template_type, "Шаблон не найден.")
-        QMessageBox.information(self, "Сформированный ответ", response_text)
+            # Конвертация в PDF через docx2pdf
+            try:
+                subprocess.run(["docx2pdf", save_path], check=True)
+                QMessageBox.information(self, "Успех", f"Сохранено:\n{save_path}\nи PDF рядом")
+            except Exception as e:
+                QMessageBox.warning(self, "PDF", f"Сохранён только DOCX.\nДля PDF требуется Word + docx2pdf.\n{e}")
+
+        except Exception as e:
+            QMessageBox.critical(self, "Ошибка", str(e))
 
     def load_data(self):
         try:
