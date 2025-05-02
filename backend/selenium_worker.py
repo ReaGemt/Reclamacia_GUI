@@ -1,11 +1,13 @@
 #backend/selenium_worker.py
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
+from webdriver_manager.chrome import ChromeDriverManager
 from datetime import datetime
 import time
 from dotenv import load_dotenv
@@ -17,28 +19,15 @@ BASE_URL = os.getenv("APP_URL")
 LOGIN = os.getenv("APP_LOGIN")
 PASSWORD = os.getenv("APP_PASSWORD")
 
-
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException
-from datetime import datetime
-import time
-
-
 def log(msg):
     print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}")
-
 
 def update_status(card_number: str, new_status: str):
     try:
         log("Шаг 1: Инициализация браузера")
         options = Options()
         # options.add_argument('--headless')
-        driver = webdriver.Chrome(options=options)
+        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
         wait = WebDriverWait(driver, 15)
 
         log("Шаг 2: Открываю страницу логина")
@@ -98,7 +87,6 @@ def update_status(card_number: str, new_status: str):
         input_field.send_keys(card_number + Keys.ENTER)
         log(f"→ Номер карты введён: {card_number}")
 
-        # Ждём появления строки с нужным номером
         wait.until(EC.presence_of_element_located((By.XPATH, f"//table//td[contains(text(), '{card_number}')]")))
         time.sleep(1)
 
@@ -140,7 +128,6 @@ def update_status(card_number: str, new_status: str):
         log("✅ Браузер закрыт.")
 
 if __name__ == "__main__":
-    # только для ручной отладки — не тронется при импорте
     test_card = "RUD0000259991000"
     test_status = "Гарантия"
     update_status(test_card, test_status)
