@@ -19,12 +19,17 @@ APP_PASSWORD=your_password
 
 ## 🚀 Запуск
 
-### Backend:
+### 1. Инициализация базы данных:
+```bash
+python init_db.py
+```
+
+### 2. Запуск backend-сервера:
 ```bash
 uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-### Тестовый запуск selenium:
+### 3. Тестовый запуск selenium вручную:
 ```bash
 python backend/selenium_worker.py
 ```
@@ -45,3 +50,4 @@ pip freeze > requirements.txt
 - Логика кнопок в `frontend/main.py`
 - Обработка selenium — в `backend/selenium_worker.py`
 - REST API — в `backend/routes.py`
+- Инициализация БД — `init_db.py`
