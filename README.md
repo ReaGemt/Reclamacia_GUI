@@ -34,6 +34,17 @@ uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000
 python backend/selenium_worker.py
 ```
 
+## 📥 Импорт из Excel
+
+В приложении доступна кнопка **"Импорт из Excel"**. Файл должен содержать следующие заголовки в первой строке:
+
+```
+record_date, last_name, first_name, patronymic, status,
+comment, card_number, organization, manufacturer, work_status
+```
+
+Пример файла: [`sample_import.xlsx`](sample_import.xlsx)
+
 ## 🧰 Полезные команды
 
 Установка webdriver-manager:
