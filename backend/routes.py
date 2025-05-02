@@ -5,7 +5,7 @@ from sqlalchemy import update, delete
 from backend.models import User, Record, RecordModel, LoginRequest
 from backend.database import async_session_maker
 from fastapi.responses import JSONResponse
-
+from backend.selenium_worker import update_status
 router = APIRouter()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("routes")
@@ -96,8 +96,8 @@ async def update_status_via_selenium(data: dict):
     try:
         card_number = data.get("card_number")
         new_status = data.get("new_status")
-        logger.info(f"[Selenium-мок] Обновляем статус {card_number} → {new_status}")
-        return JSONResponse(content={"message": "Статус обновлён (мок)"})
+        update_status(card_number, new_status)
+        return JSONResponse(content={"message": "Статус обновлён через Selenium"})
     except Exception as e:
         logger.exception("Ошибка при обновлении статуса через Selenium")
         raise HTTPException(status_code=500, detail="Ошибка при обновлении статуса через Selenium")
