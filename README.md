@@ -1,64 +1,57 @@
-# Reclamacia_GUI
-
-## 📦 Установка
+## Установка зависимостей
 
 ```bash
-python -m venv .venv
-.\.venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-## ⚙️ Настройка окружения
-Создайте файл `.env`:
+## Пример .env файла
 
-```
+```env
 APP_URL=https://example.com
-APP_LOGIN=your_login
-APP_PASSWORD=your_password
+APP_LOGIN=admin
+APP_PASSWORD=password
 ```
 
-## 🚀 Запуск
+## Импорт данных из Excel
 
-### 1. Инициализация базы данных:
+Перед первым запуском выполните инициализацию базы данных:
+
 ```bash
 python init_db.py
 ```
 
-### 2. Запуск backend-сервера:
+## Запуск Backend
+
 ```bash
-uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000
+uvicorn backend.main:app --port 8000
 ```
 
-### 3. Тестовый запуск selenium вручную:
+## Запуск GUI
+
 ```bash
-python backend/selenium_worker.py
+python frontend/main.py
 ```
 
-## 📥 Импорт из Excel
+## Пример вызова selenium из API
 
-В приложении доступна кнопка **"Импорт из Excel"**. Файл должен содержать следующие заголовки в первой строке:
-
-```
-record_date, last_name, first_name, patronymic, status,
-comment, card_number, organization, manufacturer, work_status
-```
-
-Пример файла: [`sample_import.xlsx`](sample_import.xlsx)
-
-## 🧰 Полезные команды
-
-Установка webdriver-manager:
 ```bash
-pip install webdriver-manager
+curl -X POST "http://127.0.0.1:8000/selenium" -H "Content-Type: application/json" -d '{"card_number": "RUD0000000000000", "new_status": "Гарантия"}'
 ```
 
-Обновление зависимостей:
-```bash
-pip freeze > requirements.txt
-```
+## 🗂 Структура проекта
 
-## 📝 Заметки
-- Логика кнопок в `frontend/main.py`
-- Обработка selenium — в `backend/selenium_worker.py`
-- REST API — в `backend/routes.py`
-- Инициализация БД — `init_db.py`
+```
+├── backend/              # Backend: FastAPI, SQLAlchemy, Selenium
+│   ├── main.py           # Точка входа для backend-приложения
+│   ├── routes.py         # Определения REST API маршрутов
+│   ├── admin.py          # Интерфейс администратора (sqladmin)
+│   └── selenium_worker.py# Автоматизация через браузер
+│
+├── frontend/             # GUI: PySide6
+│   └── main.py           # Основная логика интерфейса
+│
+├── init_db.py            # Скрипт инициализации базы данных
+├── requirements.txt      # Зависимости проекта
+├── README.md             # Инструкции и документация
+└── .env                  # Конфигурация (не включается в git)
+```
