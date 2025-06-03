@@ -19,28 +19,34 @@ import threading
 
 os.chdir(os.path.dirname(__file__))
 
-API_URL = "http://127.0.0.1:8000"
+API_URL = "http://192.168.7.64:8000"
 current_user = None
+
+def resource_path(relative_path):
+    try:
+        base_path = sys._MEIPASS  # PyInstaller временная папка
+    except AttributeError:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
 
 class LoginDialog(QDialog):
     def __init__(self):
         super().__init__()
         self.success = False
         self.setWindowTitle("Вход")
-        self.setWindowIcon(QIcon("icon.ico"))
+        self.setWindowIcon(QIcon(resource_path("frontend/icon.ico")))
         layout = QVBoxLayout()
 
         # --- ЛОГОТИП ---
         logo_label = QLabel()
-        logo_label = QLabel()
-        pixmap = QPixmap(r"logo.png")
+        pixmap = QPixmap(resource_path("frontend/logo.png"))
 
         if not pixmap.isNull():
             logo_label.setPixmap(pixmap.scaledToWidth(300, Qt.SmoothTransformation))
             logo_label.setAlignment(Qt.AlignCenter)
             layout.addWidget(logo_label)
         else:
-            print("❌ Логотип не загружен. Проверь путь: logo.png")
+            print("❌ Логотип не загружен. Проверь путь: frontend/logo.png")
 
         # --- ФОРМА ЛОГИНА ---
         form_layout = QFormLayout()
