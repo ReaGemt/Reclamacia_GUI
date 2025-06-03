@@ -1,4 +1,4 @@
-import logging
+from xvfbwrapper import Xvfb
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
@@ -9,22 +9,20 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
 from webdriver_manager.chrome import ChromeDriverManager
 from datetime import datetime
-import time
 from dotenv import load_dotenv
+import pickle
 import os
-from xvfbwrapper import Xvfb
-
-logging.basicConfig(filename='/var/log/reclamacia_selenium.log', level=logging.INFO, format='[%(asctime)s] %(message)s')
+import time
 
 load_dotenv()
 
 BASE_URL = os.getenv("APP_URL")
 LOGIN = os.getenv("APP_LOGIN")
 PASSWORD = os.getenv("APP_PASSWORD")
+COOKIE_FILE = "cookies.pkl"
 
 def log(msg):
-    print(msg)
-    logging.info(msg)
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}")
 
 def update_status(card_number: str, new_status: str):
     with Xvfb():
@@ -39,102 +37,62 @@ def update_status(card_number: str, new_status: str):
 
             log("Шаг 2: Открываю страницу логина")
             driver.get(f"{BASE_URL}/private/default/login")
-            time.sleep(1)
 
-            log("Шаг 3: Ожидание полей логина")
-            username_input = wait.until(EC.presence_of_element_located((By.ID, "loginform-username")))
-            password_input = wait.until(EC.presence_of_element_located((By.ID, "loginform-password")))
-            submit_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[@type='submit']")))
+            if os.path.exists(COOKIE_FILE):
+                with open(COOKIE_FILE, "rb") as f:
+                    cookies = pickle.load(f)
+                    for cookie in cookies:
+                        driver.add_cookie(cookie)
+                driver.get(f"{BASE_URL}/private/default/index")
 
-            log("Шаг 4: Ввожу логин и пароль...")
-            username_input.send_keys(LOGIN)
-            password_input.send_keys(PASSWORD)
-            submit_button.click()
-            time.sleep(1)
+            if "login" in driver.current_url:
+                log("→ Не авторизован. Ввожу логин и пароль")
+                username_input = wait.until(EC.presence_of_element_located((By.ID, "loginform-username")))
+                password_input = wait.until(EC.presence_of_element_located((By.ID, "loginform-password")))
+                submit_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[@type='submit']")))
+                username_input.send_keys(LOGIN)
+                password_input.send_keys(PASSWORD)
+                submit_button.click()
+                time.sleep(2)
 
-            log("Шаг 5: Проверяю появление модального окна (если есть)")
-            try:
-                modal_button = WebDriverWait(driver, 5).until(
-                    EC.element_to_be_clickable((By.CSS_SELECTOR, "button.btn.btn-default.btn-blue"))
-                )
-                log("→ Модальное окно появилось. Подтверждаю вход...")
-                modal_button.click()
-                time.sleep(1)
-            except TimeoutException:
-                log("→ Модального окна не появилось — продолжаем.")
+                with open(COOKIE_FILE, "wb") as f:
+                    pickle.dump(driver.get_cookies(), f)
 
-            log("Шаг 6: Проверка, что загрузилась основная панель")
-            wait.until(EC.presence_of_element_located((By.XPATH, "//div[contains(text(), 'Основная панель')]")))
-            log("→ Основная панель загружена")
-            time.sleep(1)
+            log("Шаг 3: Переход в раздел 'Заявления'")
+            driver.get(f"{BASE_URL}/private/cards/list?form=30")
+            wait.until(EC.presence_of_element_located((By.ID, "cardinfoforproducer-card_number")))
 
-            log("Шаг 7: Переход в раздел 'Заявления' — сначала через execute_script")
-            try:
-                driver.execute_script(f"window.location.href = '{BASE_URL}/private/cards/list?form=30'")
-                time.sleep(3)
-                wait.until(EC.presence_of_element_located((By.ID, "cardinfoforproducer-card_number")))
-                log("→ Переход сработал через execute_script")
-            except Exception as e:
-                log(f"⚠ Не удалось через execute_script: {e}")
-                log("→ Пробуем через клик по меню...")
-                try:
-                    menu_link = wait.until(
-                        EC.element_to_be_clickable((By.XPATH, "//a[contains(text(), 'Заявление на карту водителя')]"))
-                    )
-                    menu_link.click()
-                    time.sleep(3)
-                    wait.until(EC.presence_of_element_located((By.ID, "cardinfoforproducer-card_number")))
-                    log("→ Переход по клику выполнен успешно")
-                except Exception as e2:
-                    raise Exception(f"❌ Не удалось открыть раздел ни одним способом: {e2}")
-
-            log("Шаг 8: Ввод номера карты")
+            log("Шаг 4: Ввод номера карты")
             input_field = driver.find_element(By.ID, "cardinfoforproducer-card_number")
             input_field.clear()
             input_field.send_keys(card_number + Keys.ENTER)
             log(f"→ Номер карты введён: {card_number}")
 
             wait.until(EC.presence_of_element_located((By.XPATH, f"//table//td[contains(text(), '{card_number}')]")))
-            time.sleep(1)
 
-            log("Шаг 9: Проверка статуса из таблицы (td[2])")
-            status_cell = wait.until(
-                EC.presence_of_element_located((By.XPATH, "//table//tbody/tr[1]/td[2]"))
-            )
+            log("Шаг 5: Проверка статуса")
+            status_cell = wait.until(EC.presence_of_element_located((By.XPATH, "//table//tbody/tr[1]/td[2]")))
             current_status = status_cell.text.strip()
-            log(f"→ Статус карты: {current_status}")
+            log(f"→ Статус: {current_status}")
 
-            log("Шаг 10: Проверка соответствия статусу")
             if current_status.lower() != "активна":
                 raise Exception("Карта не выдана — статус не 'Активна'")
 
-            log("→ Статус 'Активна'. Переходим к изменению...")
-
-            log("Шаг 11: Кликаю на кнопку 'Set defective'")
+            log("Шаг 6: Изменение статуса")
             edit_button = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "a.btn.set-defective-btn")))
             edit_button.click()
-            time.sleep(1)
 
-            log("Шаг 12: Ввожу 'Гарантия' в модальном окне")
             note_field = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "textarea.form-control.note-block")))
             note_field.clear()
-            note_field.send_keys("Гарантия")
-            time.sleep(1)
+            note_field.send_keys(new_status)
+            log(f"→ Устанавливаю статус: {new_status}")
 
-            log("Шаг 13: Нажимаю кнопку 'Изменить'")
             submit_btn = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Изменить')]")))
             submit_btn.click()
-            log("→ Изменение успешно отправлено")
+            log("→ Изменение отправлено")
 
         except Exception as e:
             log(f"❌ Ошибка: {e}")
-
         finally:
-            time.sleep(1)
             driver.quit()
-            log("✅ Браузер закрыт.")
-
-if __name__ == "__main__":
-    test_card = "RUD0000259991000"
-    test_status = "Гарантия"
-    update_status(test_card, test_status)
+            log("✅ Браузер закрыт")
