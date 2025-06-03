@@ -1,11 +1,12 @@
 import logging
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, BackgroundTasks
 from sqlalchemy.future import select
 from sqlalchemy import update, delete
 from backend.models import User, Record, RecordModel, LoginRequest
 from backend.database import async_session_maker
 from fastapi.responses import JSONResponse
 from backend.selenium_worker import update_status
+
 router = APIRouter()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("routes")
@@ -92,12 +93,12 @@ async def delete_record(record_id: int):
 
 
 @router.post("/selenium")
-async def update_status_via_selenium(data: dict):
+async def update_status_via_selenium(data: dict, background_tasks: BackgroundTasks):
     try:
         card_number = data.get("card_number")
         new_status = data.get("new_status")
-        update_status(card_number, new_status)
-        return JSONResponse(content={"message": "Статус обновлён через Selenium"})
+        background_tasks.add_task(update_status, card_number, new_status)
+        return JSONResponse(content={"message": "Задача обновления статуса запущена в фоне"})
     except Exception as e:
         logger.exception("Ошибка при обновлении статуса через Selenium")
         raise HTTPException(status_code=500, detail="Ошибка при обновлении статуса через Selenium")
