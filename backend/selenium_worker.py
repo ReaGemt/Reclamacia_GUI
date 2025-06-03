@@ -1,4 +1,4 @@
-from xvfbwrapper import Xvfb
+import logging
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
@@ -12,6 +12,9 @@ from datetime import datetime
 import time
 from dotenv import load_dotenv
 import os
+from xvfbwrapper import Xvfb
+
+logging.basicConfig(filename='/var/log/reclamacia_selenium.log', level=logging.INFO, format='[%(asctime)s] %(message)s')
 
 load_dotenv()
 
@@ -20,7 +23,8 @@ LOGIN = os.getenv("APP_LOGIN")
 PASSWORD = os.getenv("APP_PASSWORD")
 
 def log(msg):
-    print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}")
+    print(msg)
+    logging.info(msg)
 
 def update_status(card_number: str, new_status: str):
     with Xvfb():
