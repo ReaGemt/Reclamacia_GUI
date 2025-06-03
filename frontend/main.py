@@ -7,7 +7,7 @@ import subprocess
 from PySide6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem,
     QPushButton, QHBoxLayout, QMessageBox, QDialog, QLabel, QLineEdit, QFormLayout,
-    QDateEdit, QFileDialog, QComboBox, QAbstractItemView
+    QDateEdit, QFileDialog, QComboBox, QAbstractItemView, QCheckBox
 )
 from PySide6.QtCore import Qt, QDate, QSettings, QTimer, QSize
 from PySide6.QtGui import QColor, QIcon, QPixmap
@@ -15,7 +15,7 @@ from openpyxl import Workbook, load_workbook
 from PySide6.QtWidgets import QSplashScreen, QHeaderView
 from docx import Document
 from docx.shared import Pt
-
+import threading
 
 os.chdir(os.path.dirname(__file__))
 
@@ -339,6 +339,10 @@ class MainWindow(QWidget):
         self.selenium_btn.clicked.connect(self.run_selenium)
         btn_layout.addWidget(self.selenium_btn)
 
+        self.status_checkbox = QCheckBox("✅ Обновлено")
+        self.status_checkbox.setEnabled(False)
+        btn_layout.addWidget(self.status_checkbox)
+
         layout.addLayout(btn_layout)
         self.load_data()
 
@@ -646,27 +650,39 @@ class MainWindow(QWidget):
         except Exception as e:
             QMessageBox.critical(self, "Ошибка", f"Не удалось импортировать:\n{e}")
 
+    from PySide6.QtCore import QTimer
+
     def run_selenium(self):
         selected = self.table.currentRow()
         if selected == -1:
             QMessageBox.warning(self, "Нет выбора", "Выберите запись.")
             return
 
-        card_number = self.table.item(selected, 6).text()
-        work_status = self.table.item(selected, 9).text()
+        card_number = self.table.item(selected, 2).text()
+        work_status = self.table.item(selected, 8).text()
 
-        try:
-            response = requests.post(f"{API_URL}/selenium", json={
-                "card_number": card_number,
-                "new_status": work_status
-            })
-            if response.status_code == 200:
-                QMessageBox.information(self, "Готово", "Статус обновлён в системе.")
-            else:
-                QMessageBox.warning(self, "Ошибка", response.text)
-        except Exception as e:
-            QMessageBox.critical(self, "Ошибка", str(e))
+        def selenium_thread():
+            try:
+                response = requests.post(f"{API_URL}/selenium", json={
+                    "card_number": card_number,
+                    "new_status": work_status
+                })
+                if response.status_code == 200:
+                    QTimer.singleShot(0, lambda: self.on_selenium_success())
+                else:
+                    QTimer.singleShot(0, lambda: self.on_selenium_error(response.text))
+            except Exception as e:
+                QTimer.singleShot(0, lambda: self.on_selenium_error(str(e)))
 
+        threading.Thread(target=selenium_thread, daemon=True).start()
+
+    def on_selenium_success(self):
+        self.status_checkbox.setChecked(True)
+        QMessageBox.information(self, "Готово", "Статус обновлён в системе.")
+
+    def on_selenium_error(self, msg):
+        self.status_checkbox.setChecked(False)
+        QMessageBox.warning(self, "Ошибка", msg)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
