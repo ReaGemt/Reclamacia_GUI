@@ -3,6 +3,7 @@ from fastapi import APIRouter, HTTPException, BackgroundTasks
 from sqlalchemy.future import select
 from sqlalchemy import update, delete
 from backend.models import User, Record, RecordModel, LoginRequest
+from backend.crud import hash_password
 from backend.database import async_session_maker
 from fastapi.responses import JSONResponse
 from backend.selenium_worker import update_status
@@ -29,7 +30,7 @@ async def auth_user(request: LoginRequest):
         async with async_session_maker() as session:
             result = await session.execute(select(User).where(User.login == request.login))
             user = result.scalar_one_or_none()
-            if user and user.password_hash == request.password:
+            if user and user.password_hash == hash_password(request.password):
                 return {"message": "Успешная аутентификация"}
             raise HTTPException(status_code=401, detail="Неверный логин или пароль")
     except HTTPException:
