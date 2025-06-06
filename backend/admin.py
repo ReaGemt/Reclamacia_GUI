@@ -2,7 +2,7 @@
 
 from sqladmin import Admin, ModelView
 from backend.models import User
-from backend.database import engine, async_session_maker  # Обрати внимание
+from backend.database import engine, async_session_maker  # required so sqladmin works with the async session
 from fastapi import FastAPI
 
 app = FastAPI()
