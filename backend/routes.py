@@ -32,7 +32,9 @@ async def auth_user(request: LoginRequest):
             if user and user.password_hash == request.password:
                 return {"message": "Успешная аутентификация"}
             raise HTTPException(status_code=401, detail="Неверный логин или пароль")
-    except Exception as e:
+    except HTTPException:
+        raise
+    except Exception:
         logger.exception("Ошибка при аутентификации")
         raise HTTPException(status_code=500, detail="Ошибка сервера при попытке аутентификации")
 
