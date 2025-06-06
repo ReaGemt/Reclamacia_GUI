@@ -6,6 +6,7 @@ from backend.models import User, Record, RecordModel, LoginRequest
 from backend.database import async_session_maker
 from fastapi.responses import JSONResponse
 from backend.selenium_worker import update_status
+from backend.cli_add_user import hash_password
 
 router = APIRouter()
 logging.basicConfig(level=logging.INFO)
@@ -29,7 +30,8 @@ async def auth_user(request: LoginRequest):
         async with async_session_maker() as session:
             result = await session.execute(select(User).where(User.login == request.login))
             user = result.scalar_one_or_none()
-            if user and user.password_hash == request.password:
+            hashed = hash_password(request.password)
+            if user and user.password_hash == hashed:
                 return {"message": "Успешная аутентификация"}
             raise HTTPException(status_code=401, detail="Неверный логин или пароль")
     except Exception as e:
