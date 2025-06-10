@@ -45,7 +45,7 @@ curl -X POST "http://127.0.0.1:8000/selenium" -H "Content-Type: application/json
 │   ├── main.py           # Точка входа для backend-приложения
 │   ├── routes.py         # Определения REST API маршрутов
 │   ├── admin.py          # Интерфейс администратора (sqladmin)
-│   └── selenium_worker.py# Автоматизация через браузер
+│   └── selenium_worker.py  # Автоматизация через браузер
 │
 ├── frontend/             # GUI: PySide6
 │   └── main.py           # Основная логика интерфейса
